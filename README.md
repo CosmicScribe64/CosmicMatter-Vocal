@@ -6,6 +6,18 @@ Vocal brings Vocaloid/UTAU-style singing synthesis into VCV Rack 2. Write or imp
 
 The plugin is free and works without a DAW or OpenUtau installation. It includes the official Adachi Rei 3.5.0 UTAU voicebank for an offline first sound.
 
+## Interface
+
+<p align="center">
+  <img src="docs/images/vocal-module.png" alt="The Vocal module running in VCV Rack, with its piano roll, transport controls, expression inputs, and voice output visible" width="645">
+</p>
+<p align="center"><sub>The 64 HP Vocal module turns a written score into a clockable, patchable Rack voice.</sub></p>
+
+<p align="center">
+  <img src="docs/images/vocal-editor.png" alt="The full Vocal score editor showing notes, lyrics, phoneme timing, pitch, dynamics, and song sections" width="1100">
+</p>
+<p align="center"><sub>The full score editor keeps notes, lyrics, phonemes, pitch, dynamics, and sections in one view.</sub></p>
+
 ## Modules
 
 | Module | Purpose |
