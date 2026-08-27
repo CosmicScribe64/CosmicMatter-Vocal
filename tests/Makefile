@@ -17,7 +17,10 @@ RACK_RUNTIME_DIR ?= $(RACK_DIR)
 RACK_CXXFLAGS := $(CXXFLAGS) -isystem $(RACK_DIR)/include -isystem $(RACK_DIR)/dep/include
 RACK_LDFLAGS := $(LDFLAGS) -L$(RACK_DIR) -lRack
 ifeq ($(OS),Windows_NT)
-RACK_CXXFLAGS += -D_USE_MATH_DEFINES
+# Rack's headers need the MS math constants under strict MinGW C++, while
+# GCC 16 otherwise reports a false free-nonheap-object warning from its own
+# vector<string> destructor when VocalModule is inlined at -O2.
+RACK_CXXFLAGS += -D_USE_MATH_DEFINES -Wno-free-nonheap-object
 LDFLAGS += -liconv
 RACK_RUN_ENV := PATH=$(RACK_RUNTIME_DIR):$$PATH
 else ifeq ($(shell uname -s),Darwin)
