@@ -39,8 +39,21 @@ bool ClockEstimator::process(float voltage, double sampleRate, int ppqn) noexcep
             consecutiveOutliers_ = 0; outlierBpm_ = 0.0;
             intervals_[nextInterval_] = candidate; nextInterval_ = (nextInterval_ + 1) % intervals_.size();
             intervalCount_ = std::min(intervalCount_ + 1, intervals_.size());
-            auto sorted = intervals_; std::sort(sorted.begin(), sorted.begin() + intervalCount_);
-            estimatedBpm_ = sorted[intervalCount_ / 2];
+            // GCC 16's std::sort inliner can diagnose the valid one-past-end
+            // iterator for a full std::array as an out-of-bounds subscript.
+            // Eight values are cheaper and clearer to insertion-sort here;
+            // .at() also leaves the bounded audio-thread invariant explicit.
+            auto sorted = intervals_;
+            for (size_t index = 1; index < intervalCount_; ++index) {
+                const double value = sorted.at(index);
+                size_t insert = index;
+                while (insert > 0 && sorted.at(insert - 1) > value) {
+                    sorted.at(insert) = sorted.at(insert - 1);
+                    --insert;
+                }
+                sorted.at(insert) = value;
+            }
+            estimatedBpm_ = sorted.at(intervalCount_ / 2);
         }
     }
     samplesSinceEdge_ = 0;

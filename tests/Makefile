@@ -17,11 +17,13 @@ RACK_RUNTIME_DIR ?= $(RACK_DIR)
 RACK_CXXFLAGS := $(CXXFLAGS) -isystem $(RACK_DIR)/include -isystem $(RACK_DIR)/dep/include
 RACK_LDFLAGS := $(LDFLAGS) -L$(RACK_DIR) -lRack
 ifeq ($(OS),Windows_NT)
+LDFLAGS += -liconv
 RACK_RUN_ENV := PATH=$(RACK_RUNTIME_DIR):$$PATH
 else ifeq ($(shell uname -s),Darwin)
 RACK_CXXFLAGS += -mmacosx-version-min=10.15
 RACK_RUN_ENV := DYLD_LIBRARY_PATH=$(RACK_DIR)
 else
+RACK_LDFLAGS += -lpulse-simple -lpulse -ljack -lasound -lGL
 RACK_RUN_ENV := LD_LIBRARY_PATH=$(RACK_DIR)
 endif
 

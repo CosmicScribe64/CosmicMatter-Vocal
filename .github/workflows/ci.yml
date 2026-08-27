@@ -25,6 +25,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rack runtime link dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpulse-dev libjack-jackd2-dev libasound2-dev libgl-dev
       - name: Download matching official Rack SDK
         run: |
           curl --fail --location --output rack-sdk.zip https://vcvrack.com/downloads/Rack-SDK-2.6.6-lin-x64.zip
@@ -112,7 +114,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: make jq tar unzip zip zstd mingw-w64-x86_64-gcc
+          install: make jq tar unzip zip zstd mingw-w64-x86_64-gcc mingw-w64-x86_64-libiconv
       - name: Build, ABI-test, and package Rack plugin
         shell: msys2 {0}
         run: |
