@@ -1,0 +1,21 @@
+name: Warnings
+ustx_version: 0.9
+tempos:
+- {position: 0, bpm: 120}
+- {position: 960, bpm: 90}
+time_signatures:
+- {bar_position: 0, beat_per_bar: 4, beat_unit: 4}
+- {bar_position: 4, beat_per_bar: 3, beat_unit: 4}
+tracks:
+- track_name: Lead
+voice_parts:
+- name: Main
+  track_no: 0
+  position: 0
+  notes:
+  - position: 0
+    duration: 480
+    tone: 60
+    lyric: あ
+    unsupported_expression: 42
+

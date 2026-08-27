@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose a focused Vocal workflow or compatibility improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: User workflow
+      description: Describe the person, goal, and current obstacle rather than only the proposed control.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility or interchange impact
+      description: Note any UTAU/OpenUtau format, voicebank, Rack patch, or real-time behavior affected.

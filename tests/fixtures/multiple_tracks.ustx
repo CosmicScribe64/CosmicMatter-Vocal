@@ -1,0 +1,25 @@
+name: Multiple tracks
+ustx_version: 0.9
+tempos:
+- {position: 0, bpm: 120}
+tracks:
+- track_name: Lead
+- track_name: Harmony
+voice_parts:
+- name: Lead part
+  track_no: 0
+  position: 0
+  notes:
+  - position: 0
+    duration: 480
+    tone: 60
+    lyric: あ
+- name: Harmony part
+  track_no: 1
+  position: 0
+  notes:
+  - position: 0
+    duration: 480
+    tone: 67
+    lyric: う
+

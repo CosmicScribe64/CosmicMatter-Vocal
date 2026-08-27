@@ -1,0 +1,77 @@
+name: VocalRack Adachi Rei expression regression
+comment: Authored vibrato, pitch-curve, and dynamics comparison against OpenUtau Classic.
+ustx_version: 0.9
+tempos:
+- {position: 0, bpm: 120}
+time_signatures:
+- {bar_position: 0, beat_per_bar: 4, beat_unit: 4}
+tracks:
+- track_name: Adachi Rei expression
+  singer: adachi-rei
+  phonemizer: OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer
+  renderer_settings:
+    renderer: WORLDLINE-R
+voice_parts:
+- name: expression cases
+  track_no: 0
+  position: 0
+  duration: 11520
+  notes:
+  - position: 0
+    duration: 1920
+    tone: 59
+    lyric: あ
+    pitch:
+      snap_first: false
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 2400
+    duration: 1920
+    tone: 59
+    lyric: い
+    pitch:
+      snap_first: false
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 70, period: 200, depth: 40, in: 15, out: 20, shift: 0}
+  - position: 4800
+    duration: 1920
+    tone: 59
+    lyric: う
+    pitch:
+      snap_first: false
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 80, period: 160, depth: 25, in: 10, out: 25, shift: 25}
+  - position: 7200
+    duration: 1920
+    tone: 59
+    lyric: え
+    pitch:
+      snap_first: false
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 300, y: 0, shape: io}
+      - {x: 700, y: 4, shape: io}
+      - {x: 1100, y: -3, shape: io}
+      - {x: 1600, y: 2, shape: io}
+      - {x: 2000, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 9600
+    duration: 1920
+    tone: 59
+    lyric: お
+    pitch:
+      snap_first: false
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  curves:
+  - abbr: dyn
+    xs: [9600, 10080, 10560, 11040, 11520]
+    ys: [-60, 30, -90, 0, -60]

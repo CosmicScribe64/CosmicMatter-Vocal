@@ -1,0 +1,8 @@
+{
+  "language": "en",
+  "showTipsOnLaunch": false,
+  "autoCheckUpdates": false,
+  "frameRateLimit": 30.0,
+  "threadCount": 1,
+  "autosaveInterval": 15.0
+}

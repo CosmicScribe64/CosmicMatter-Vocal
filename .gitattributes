@@ -1,0 +1,11 @@
+# Preserve upstream singer/dictionary bytes and keep generated/binary assets out
+# of textual whitespace and line-ending normalization.
+res/singers/adachi-rei/** -text -diff
+res/dictionaries/cmudict-0.7b.txt -text -diff
+third_party/nlohmann/LICENSE.MIT -text -diff
+patches/*.vcv binary
+*.wav binary
+*.frq binary
+*.png binary
+*.bmp binary
+*.jpeg binary

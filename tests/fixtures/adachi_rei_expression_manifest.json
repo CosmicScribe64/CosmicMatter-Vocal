@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "bpm": 120,
+  "targetMidi": 59,
+  "pitchSegments": [
+    {"name": "flat-control", "kind": "flat", "startSeconds": 0.2, "endSeconds": 1.8},
+    {"name": "vibrato-5hz", "kind": "vibrato", "startSeconds": 3.2, "endSeconds": 4.25, "expectedRateHz": 5.0, "expectedDepthCents": 40.0},
+    {"name": "vibrato-shifted-6.25hz", "kind": "vibrato", "startSeconds": 5.55, "endSeconds": 6.65, "expectedRateHz": 6.25, "expectedDepthCents": 25.0},
+    {"name": "authored-pitch-curve", "kind": "curve", "startSeconds": 7.7, "endSeconds": 9.3}
+  ],
+  "dynamicsSegments": [
+    {"name": "authored-dynamics-curve", "startSeconds": 10.2, "endSeconds": 11.8}
+  ]
+}

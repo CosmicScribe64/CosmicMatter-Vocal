@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="380" viewBox="0 0 960 380">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#272c39"/>
+      <stop offset="1" stop-color="#151821"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="380" rx="3" fill="url(#panel)" stroke="#596276"/>
+  <text x="28" y="25" fill="#f56898" font-family="sans-serif" font-size="19" font-weight="700">VOCAL</text>
+  <text x="108" y="24" fill="#aeb9cc" font-family="sans-serif" font-size="10">NATIVE V1 / UTAU VOICE WORKSTATION</text>
+  <g fill="#aeb9cc" font-family="sans-serif" font-size="7" text-anchor="middle">
+    <text x="530" y="33">READY</text><text x="575" y="33">RENDER</text><text x="620" y="33">ERROR</text><text x="665" y="33">UNDER</text>
+  </g>
+  <rect x="14" y="35" width="146" height="333" rx="8" fill="#171c26" stroke="#515b70"/>
+  <rect x="166" y="35" width="628" height="333" rx="8" fill="#0d121a" stroke="#657086"/>
+  <rect x="800" y="35" width="146" height="333" rx="8" fill="#171c26" stroke="#515b70"/>
+  <g font-family="sans-serif">
+    <text x="20" y="221" fill="#77849a" font-size="8" font-weight="700">TRANSPORT</text>
+    <text x="263" y="221" fill="#77849a" font-size="8" font-weight="700">PERFORMANCE</text>
+    <text x="493" y="221" fill="#77849a" font-size="8" font-weight="700">CV AMOUNT</text>
+    <path d="M24 56H150 M810 56H936 M810 136H936 M24 244H150 M810 310H936" stroke="#41495a"/>
+    <g fill="#d9dfeb" font-size="9" text-anchor="middle">
+      <text x="40" y="283">PLAY / PAUSE</text><text x="95" y="283">RESET</text><text x="150" y="283">LOOP</text><text x="210" y="283">RANGE</text>
+      <text x="285" y="283">BPM</text><text x="365" y="283">TRANSPOSE</text><text x="445" y="283">SECTION</text>
+      <text x="520" y="283">PITCH</text><text x="570" y="283">DYN</text><text x="620" y="283">VIB</text><text x="670" y="283">FORM</text>
+    </g>
+  </g>
+  <g font-family="sans-serif">
+    <text x="25" y="308" fill="#77849a" font-size="8" font-weight="700">TRANSPORT IN</text>
+    <text x="259" y="308" fill="#77849a" font-size="8" font-weight="700">EXPRESSION IN</text>
+    <text x="566" y="308" fill="#77849a" font-size="8" font-weight="700">OUTPUTS</text>
+    <g fill="#d9dfeb" font-size="8" text-anchor="middle">
+      <text x="42" y="365">CLOCK</text><text x="93" y="365">RESET</text><text x="144" y="365">RUN</text><text x="195" y="365">TRIG</text>
+      <text x="274" y="365">PITCH</text><text x="326" y="365">DYN</text><text x="378" y="365">VIB</text><text x="430" y="365">FORM</text><text x="482" y="365">SECTION</text>
+      <text x="595" y="365">VOICE OUT</text><text x="665" y="365">END</text>
+    </g>
+  </g>
+</svg>

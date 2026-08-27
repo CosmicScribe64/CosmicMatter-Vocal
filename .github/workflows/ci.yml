@@ -1,0 +1,130 @@
+name: Cosmic Matter Vocal CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core-offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run core/offline tests
+        run: make -f tests/Makefile BUILD=build-tests-ci tests offline
+      - name: Validate bundled legal/assets
+        run: sh scripts/validate_release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-wavs-linux
+          path: test-artifacts/offline/*.wav
+
+  rack-linux-x64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download matching official Rack SDK
+        run: |
+          curl --fail --location --output rack-sdk.zip https://vcvrack.com/downloads/Rack-SDK-2.6.6-lin-x64.zip
+          echo "420da2452def7b195f98e3a0650c35f1e0f058a98a71840b4347d3d203618532  rack-sdk.zip" | sha256sum --check --strict
+          unzip -q rack-sdk.zip -d .rack-sdk
+      - name: Build, ABI-test, and package Rack plugin
+        run: |
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
+      - name: Validate package contents
+        run: |
+          package=$(find dist -name '*.vcvplugin' -type f -print -quit)
+          VCVPLUGIN_PATH="$package" sh scripts/validate_release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmicmatter-vocal-linux-x64
+          path: dist/*.vcvplugin
+
+  rack-macos-x64:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download matching official Rack SDK
+        run: |
+          curl --fail --location --output rack-sdk.zip https://vcvrack.com/downloads/Rack-SDK-2.6.6-mac-x64.zip
+          echo "9b8b0d7582ca25fac879f8f64de40f2481df2fd903b65f3abb5d6801689060ec  rack-sdk.zip" | shasum -a 256 --check
+          unzip -q rack-sdk.zip -d .rack-sdk
+      - name: Build, harness, and package
+        run: |
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
+      - name: Validate package contents
+        run: |
+          package=$(find dist -name '*.vcvplugin' -type f -print -quit)
+          VCVPLUGIN_PATH="$package" sh scripts/validate_release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmicmatter-vocal-macos-x64
+          path: dist/*.vcvplugin
+
+  rack-macos-arm64:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm native Apple Silicon runner
+        run: test "$(uname -m)" = arm64
+      - name: Download matching official Rack SDK
+        run: |
+          curl --fail --location --output rack-sdk.zip https://vcvrack.com/downloads/Rack-SDK-2.6.6-mac-arm64.zip
+          echo "29414e52417992cbafa47e30f947c3c0c7a34e5c424bb83c5a0af8c24840481f  rack-sdk.zip" | shasum -a 256 --check
+          unzip -q rack-sdk.zip -d .rack-sdk
+      - name: Build, harness, and package
+        run: |
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
+      - name: Validate package contents
+        run: |
+          package=$(find dist -name '*.vcvplugin' -type f -print -quit)
+          VCVPLUGIN_PATH="$package" sh scripts/validate_release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmicmatter-vocal-macos-arm64
+          path: dist/*.vcvplugin
+
+  rack-windows-x64:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download matching official Rack SDK and runtime
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://vcvrack.com/downloads/Rack-SDK-2.6.6-win-x64.zip -OutFile rack-sdk.zip
+          if ((Get-FileHash rack-sdk.zip -Algorithm SHA256).Hash.ToLower() -ne "12f2043311db98592bdf73a7797e8a957c47950c3c8c17c7ff6421eb0015a05c") { throw "Rack SDK checksum mismatch" }
+          Expand-Archive rack-sdk.zip -DestinationPath .rack-sdk
+          Invoke-WebRequest https://vcvrack.com/downloads/RackFree-2.6.6-win-x64.exe -OutFile rack-free.exe
+          if ((Get-FileHash rack-free.exe -Algorithm SHA256).Hash.ToLower() -ne "2852c52c052155af8fa8690ae763f78778eebf1dcacfcea2743c0d4e1c76111c") { throw "Rack runtime checksum mismatch" }
+          $sevenZip = Join-Path $env:ProgramFiles "7-Zip\7z.exe"
+          if (!(Test-Path $sevenZip)) { throw "7-Zip is unavailable on the runner" }
+          & $sevenZip x rack-free.exe "-orack-runtime" libRack.dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path rack-runtime/libRack.dll)) { throw "Rack runtime extraction failed" }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: make tar unzip zip zstd mingw-w64-x86_64-gcc
+      - name: Build, ABI-test, and package Rack plugin
+        shell: msys2 {0}
+        run: |
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" RACK_RUNTIME_DIR="$PWD/rack-runtime" rack-harness
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
+      - name: Validate package contents
+        shell: msys2 {0}
+        run: |
+          package=$(find dist -name '*.vcvplugin' -type f -print -quit)
+          VCVPLUGIN_PATH="$package" sh scripts/validate_release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmicmatter-vocal-windows-x64
+          path: dist/*.vcvplugin

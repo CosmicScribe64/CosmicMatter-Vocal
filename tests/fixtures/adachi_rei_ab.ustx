@@ -1,0 +1,79 @@
+name: VocalRack and OpenUtau A-B-C phrase
+comment: Neutral six-note source using OpenUtau's fresh-install Standard portamento for renderer comparison.
+ustx_version: 0.9
+tempos:
+- {position: 0, bpm: 120}
+time_signatures:
+- {bar_position: 0, beat_per_bar: 4, beat_unit: 4}
+tracks:
+- track_name: Adachi Rei A-B-C
+  singer: adachi-rei
+  phonemizer: OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer
+  renderer_settings:
+    renderer: WORLDLINE-R
+voice_parts:
+- name: あだちれいう
+  track_no: 0
+  position: 0
+  duration: 3360
+  notes:
+  - position: 0
+    duration: 480
+    tone: 55
+    lyric: あ
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 480
+    duration: 480
+    tone: 57
+    lyric: だ
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 960
+    duration: 480
+    tone: 59
+    lyric: ち
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 1440
+    duration: 480
+    tone: 60
+    lyric: れ
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 1920
+    duration: 960
+    tone: 59
+    lyric: い
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}
+  - position: 2880
+    duration: 480
+    tone: 55
+    lyric: う
+    pitch:
+      snap_first: true
+      data:
+      - {x: -40, y: 0, shape: io}
+      - {x: 40, y: 0, shape: io}
+    vibrato: {length: 0, period: 185, depth: 0, in: 10, out: 10, shift: 0}

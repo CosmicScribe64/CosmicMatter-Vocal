@@ -1,0 +1,46 @@
+[Compatibility with UTAU engines]
+
+
+very good   moresampler(ver0.8.3),TIPS,f2resamp
+good        resampler,vs4u,fresamp,bkh01,doppeltler
+not so bad  EFB-GW
+bad         tn_fnds,world4utau
+
+
+TIPS            : compatible with all ''voice''
+moresampler     : strong voice. 
+resampler       : compatible with all ''sound''(all instrumental voice can use). a little noisy,a little strong. recommend flag B0
+f2resamp        : compatible with all ''sound''
+doppeltler      : recommend flag B0.
+vs4u            : a little noisy,strong 
+
+
+If you use ust file whitch someone made, you'd better initialize every parameters on ust.
+AdachiRei,this library isn't including human voice, so, sometimes the data whitch editted for usual voice, isn't fit.
+If you use another moresampler version,(ver0.6.1→ver0.8.3) you should delete old llsm file.
+
+---------------------------------------------------------------------------------------------
+
+[whisper voice] (あ・　い・　う・　...)
+good　　　　f2resamp, doppelter
+
+---------------------------------------------------------------------------------------------
+
+[CV VV]
+※from ver2.5.0 (CV VV)
+
+From this version, you can use CV VV (only vowel).
+In addition, There are some Experimental CVC (a な  a に  a ぬ ...), but seems not so good now.  But can use. 
+In most cases, it is better to use CV.
+
+
+---------------------------------------------------------------------------------------------
+2019.6.24
+2019.10.13 ver1.5.0 
+2020.3.7 ver2.0.0
+
+How to use(Japanese)
+http://mechanical-girl.seesaa.net/article/460137223.html
+
+
+

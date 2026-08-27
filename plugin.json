@@ -1,0 +1,30 @@
+{
+  "slug": "CosmicMatter-Vocal",
+  "name": "Cosmic Matter: Vocal",
+  "version": "2.0.0",
+  "license": "MIT",
+  "brand": "Cosmic Matter",
+  "author": "Cosmic Matter",
+  "description": "UTAU voicebank vocal synthesizer and score sequencer for VCV Rack 2",
+  "pluginUrl": "https://github.com/CosmicScribe64/CosmicMatter-Vocal",
+  "manualUrl": "https://github.com/CosmicScribe64/CosmicMatter-Vocal/blob/main/MANUAL.md",
+  "sourceUrl": "https://github.com/CosmicScribe64/CosmicMatter-Vocal",
+  "changelogUrl": "https://github.com/CosmicScribe64/CosmicMatter-Vocal/blob/main/CHANGELOG.md",
+  "minRackVersion": "2.6.6",
+  "modules": [
+    {
+      "slug": "Vocal",
+      "name": "Vocal",
+      "description": "Clock-synchronized UTAU voicebank vocal synthesizer and score sequencer",
+      "keywords": "UTAU singer singing lyrics phoneme phonemizer OpenUtau UST USTX MIDI vocal editor",
+      "tags": ["Sampler", "Sequencer", "Speech", "Controller"]
+    },
+    {
+      "slug": "SingerPlate",
+      "name": "Singer Plate",
+      "description": "Voicebank character portrait and singer identity plate",
+      "keywords": "UTAU singer portrait character artwork",
+      "tags": ["Visual"]
+    }
+  ]
+}

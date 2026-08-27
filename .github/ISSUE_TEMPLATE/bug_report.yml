@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible crash, audio, editor, import, or Rack integration defect.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Vocal. Remove personal paths or private song data from logs and project files before attaching them.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Add Cosmic Matter > Vocal
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: rack
+    attributes:
+      label: VCV Rack version
+      placeholder: 2.6.6 Free or Pro
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: macOS arm64, Windows x64, or Linux x64
+    validations:
+      required: true
+  - type: input
+    id: vocal
+    attributes:
+      label: Vocal version or commit
+      placeholder: 2.0.0 or a commit hash
+    validations:
+      required: true
+  - type: input
+    id: singer
+    attributes:
+      label: Singer and phonemizer
+      placeholder: Adachi Rei 3.5.0 / Japanese Auto
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Minimal evidence
+      description: Add a small score, public-domain fixture, screenshot, audio excerpt, or reviewed log if useful.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and licensing check
+      options:
+        - label: I reviewed attachments for private paths/data and have permission to share any included audio or voicebank material.
+          required: true

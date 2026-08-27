@@ -1,0 +1,6 @@
+{
+  "schemaVersion":2,"title":"Sustained う","nominalBpm":120,"beatsPerBar":4,"beatUnit":4,
+  "notes":[{"id":"drone","startTick":0,"durationTick":1920,"midiNote":60,"lyric":"う","pitchCents":[],"dynamicsDb":[],"vibrato":{"startPercent":50,"depthCents":20,"rateHz":5.5}}],
+  "sections":[{"id":"d","name":"DRONE","startTick":0,"endTick":1920}]
+}
+

@@ -1,0 +1,42 @@
+name: VocalRack USTX fixture
+ustx_version: 0.9
+tempos:
+- {position: 0, bpm: 120}
+time_signatures:
+- {bar_position: 0, beat_per_bar: 4, beat_unit: 4}
+tracks:
+- track_name: Lead
+  singer: adachi-rei
+  phonemizer: OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer
+  voice_color: normal
+  renderer_settings:
+    renderer: WORLDLINE-R
+voice_parts:
+- name: Main
+  track_no: 0
+  position: 0
+  duration: 1920
+  notes:
+  - position: 0
+    duration: 480
+    tone: 60
+    lyric: あ
+    phoneme_overrides:
+    - {index: 0, offset: -12, preutter_delta: 8, overlap_delta: -3, attack_time_delta: 2, release_time_delta: 4}
+    pitch:
+      data:
+      - {x: 0, y: 0, shape: io}
+      - {x: 250, y: 4, shape: l}
+    vibrato: {length: 0, period: 175, depth: 25, in: 10, out: 10, shift: 0}
+  - position: 480
+    duration: 960
+    tone: 64
+    lyric: れい
+    vibrato: {length: 45, period: 185, depth: 30, in: 15, out: 20, shift: 25}
+  curves:
+  - abbr: dyn
+    xs: [0, 480, 960, 1440]
+    ys: [-20, 0, 10, -10]
+  - abbr: bre
+    xs: [0, 1440]
+    ys: [0, 30]

@@ -1,0 +1,16 @@
+{
+  "slug": "VocalRackE2E",
+  "name": "VocalRack E2E Helper",
+  "version": "2.0.0",
+  "license": "MIT",
+  "brand": "VocalRack Tests",
+  "author": "VocalRack contributors",
+  "modules": [
+    {
+      "slug": "E2EDriver",
+      "name": "E2E Driver",
+      "description": "Test-only deterministic driver and recorder",
+      "tags": ["Utility"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion":2,"title":"One word","nominalBpm":120,"beatsPerBar":4,"beatUnit":4,
+  "notes":[
+    {"id":"one-re","startTick":0,"durationTick":480,"midiNote":59,"lyric":"れ","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"one-i","startTick":480,"durationTick":480,"midiNote":60,"lyric":"い","pitchCents":[],"dynamicsDb":[],"vibrato":{}}
+  ],
+  "sections":[{"id":"one-section","name":"WORD","startTick":0,"endTick":960}]
+}

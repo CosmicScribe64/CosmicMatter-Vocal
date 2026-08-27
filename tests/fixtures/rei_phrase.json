@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "title": "Original Adachi Rei reference phrase",
+  "nominalBpm": 120,
+  "beatsPerBar": 4,
+  "beatUnit": 4,
+  "revision": 1,
+  "notes": [
+    {"id":"n1","startTick":0,"durationTick":480,"midiNote":55,"lyric":"あ","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"n2","startTick":480,"durationTick":480,"midiNote":57,"lyric":"だ","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"n3","startTick":960,"durationTick":480,"midiNote":59,"lyric":"ち","pitchCents":[[0,-15],[240,20],[480,0]],"dynamicsDb":[],"vibrato":{}},
+    {"id":"n4","startTick":1440,"durationTick":480,"midiNote":60,"lyric":"れ","pitchCents":[],"dynamicsDb":[[0,-4],[240,1],[480,-1]],"vibrato":{}},
+    {"id":"n5","startTick":1920,"durationTick":960,"midiNote":59,"lyric":"い","pitchCents":[],"dynamicsDb":[],"vibrato":{"startPercent":55,"depthCents":35,"rateHz":5.4,"phase":0,"fadeInPercent":15,"fadeOutPercent":20}},
+    {"id":"n6","startTick":2880,"durationTick":480,"midiNote":55,"lyric":"う","pitchCents":[],"dynamicsDb":[],"vibrato":{}}
+  ],
+  "sections": [
+    {"id":"s1","name":"NAME","startTick":0,"endTick":2880},
+    {"id":"s2","name":"DRONE","startTick":2880,"endTick":3360}
+  ]
+}

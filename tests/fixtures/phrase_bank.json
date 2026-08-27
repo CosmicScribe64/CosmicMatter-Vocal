@@ -1,0 +1,11 @@
+{
+  "schemaVersion":2,"title":"Two section phrase bank","nominalBpm":120,"beatsPerBar":4,"beatUnit":4,
+  "notes":[
+    {"id":"p1","startTick":0,"durationTick":480,"midiNote":60,"lyric":"あ","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"p2","startTick":480,"durationTick":480,"midiNote":62,"lyric":"い","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"p3","startTick":960,"durationTick":480,"midiNote":64,"lyric":"う","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"p4","startTick":1440,"durationTick":480,"midiNote":67,"lyric":"え","pitchCents":[],"dynamicsDb":[],"vibrato":{}}
+  ],
+  "sections":[{"id":"a","name":"CALL","startTick":0,"endTick":960},{"id":"b","name":"ANSWER","startTick":960,"endTick":1920}]
+}
+

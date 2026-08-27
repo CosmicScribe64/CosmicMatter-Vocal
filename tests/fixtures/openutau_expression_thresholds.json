@@ -1,0 +1,14 @@
+{
+  "maximumFlatTargetErrorCents": 25,
+  "maximumFlatDifferenceCents": 20,
+  "minimumPitchContourCorrelation": 0.80,
+  "maximumPitchContourRmseCents": 22,
+  "maximumPitchContourAbsoluteLagMs": 20,
+  "maximumVibratoDepthDifferenceCents": 12,
+  "maximumVibratoRateDifferenceHz": 0.75,
+  "maximumVibratoExpectedRateErrorHz": 0.85,
+  "minimumDynamicsContourCorrelation": 0.85,
+  "maximumDynamicsContourRmseDb": 2.5,
+  "maximumDynamicsContourAbsoluteLagMs": 30,
+  "minimumDynamicsSpanDb": 6.0
+}

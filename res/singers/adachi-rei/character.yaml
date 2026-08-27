@@ -1,0 +1,6 @@
+﻿singer_type: classic
+portrait: Adachi Rei.png
+portrait_opacity: 0.67
+portrait_height: 0
+default_phonemizer: OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer
+use_filename_as_alias: false
