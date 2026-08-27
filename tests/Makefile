@@ -17,6 +17,7 @@ RACK_RUNTIME_DIR ?= $(RACK_DIR)
 RACK_CXXFLAGS := $(CXXFLAGS) -isystem $(RACK_DIR)/include -isystem $(RACK_DIR)/dep/include
 RACK_LDFLAGS := $(LDFLAGS) -L$(RACK_DIR) -lRack
 ifeq ($(OS),Windows_NT)
+RACK_CXXFLAGS += -D_USE_MATH_DEFINES
 LDFLAGS += -liconv
 RACK_RUN_ENV := PATH=$(RACK_RUNTIME_DIR):$$PATH
 else ifeq ($(shell uname -s),Darwin)
