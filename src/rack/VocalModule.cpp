@@ -388,13 +388,27 @@ void VocalModule::commitScoreEdit(const std::string& before, const std::string& 
 }
 
 void VocalModule::undo() {
-    if (undoStack_.empty()) return; auto item = undoStack_.back(); undoStack_.pop_back();
-    redoStack_.push_back({item.first, scoreToJson(score)}); score = scoreFromJson(item.second); score.touch(); requestRerender();
+    if (undoStack_.empty()) {
+        return;
+    }
+    auto item = undoStack_.back();
+    undoStack_.pop_back();
+    redoStack_.push_back({item.first, scoreToJson(score)});
+    score = scoreFromJson(item.second);
+    score.touch();
+    requestRerender();
 }
 
 void VocalModule::redo() {
-    if (redoStack_.empty()) return; auto item = redoStack_.back(); redoStack_.pop_back();
-    undoStack_.push_back({item.first, scoreToJson(score)}); score = scoreFromJson(item.second); score.touch(); requestRerender();
+    if (redoStack_.empty()) {
+        return;
+    }
+    auto item = redoStack_.back();
+    redoStack_.pop_back();
+    undoStack_.push_back({item.first, scoreToJson(score)});
+    score = scoreFromJson(item.second);
+    score.touch();
+    requestRerender();
 }
 
 void VocalModule::selectSingerFolder(const std::string& path) {

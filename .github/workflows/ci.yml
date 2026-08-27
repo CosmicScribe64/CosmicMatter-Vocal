@@ -112,7 +112,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: make tar unzip zip zstd mingw-w64-x86_64-gcc
+          install: make jq tar unzip zip zstd mingw-w64-x86_64-gcc
       - name: Build, ABI-test, and package Rack plugin
         shell: msys2 {0}
         run: |
