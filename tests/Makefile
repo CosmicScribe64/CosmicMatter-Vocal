@@ -22,6 +22,7 @@ ifeq ($(OS),Windows_NT)
 # vector<string> destructor when VocalModule is inlined at -O2.
 RACK_CXXFLAGS += -D_USE_MATH_DEFINES -Wno-free-nonheap-object
 LDFLAGS += -liconv
+RACK_LDFLAGS += -liconv
 RACK_RUN_ENV := PATH=$(RACK_RUNTIME_DIR):$$PATH
 else ifeq ($(shell uname -s),Darwin)
 RACK_CXXFLAGS += -mmacosx-version-min=10.15
