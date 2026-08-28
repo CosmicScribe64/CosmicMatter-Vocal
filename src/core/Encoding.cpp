@@ -3,9 +3,27 @@
 #include <fstream>
 #include <iconv.h>
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 namespace vocalrack {
+
+template <typename IconvFunction>
+static size_t callIconv(IconvFunction function, iconv_t cd, const char* bytes,
+                        size_t* inLeft, char** output, size_t* outLeft) {
+    // POSIX iconv and the two MinGW implementations disagree about whether
+    // the input buffer is `char**` or `const char**`. Select the signature
+    // exposed by the active SDK rather than relying on a platform macro that
+    // differs between GNU libiconv and win-iconv.
+    if constexpr (std::is_invocable_r_v<size_t, IconvFunction, iconv_t,
+                                        const char**, size_t*, char**, size_t*>) {
+        const char* input = bytes;
+        return function(cd, &input, inLeft, output, outLeft);
+    } else {
+        char* input = const_cast<char*>(bytes);
+        return function(cd, &input, inLeft, output, outLeft);
+    }
+}
 
 bool isValidUtf8(const std::string& s) noexcept {
     const auto* p = reinterpret_cast<const unsigned char*>(s.data());
@@ -30,11 +48,10 @@ static std::string iconvDecode(const std::string& bytes, const char* from) {
     iconv_t cd = iconv_open("UTF-8", from);
     if (cd == reinterpret_cast<iconv_t>(-1)) throw std::runtime_error("iconv does not support requested encoding");
     std::vector<char> output(bytes.size() * 4 + 16);
-    char* input = const_cast<char*>(bytes.data());
     size_t inLeft = bytes.size();
     char* out = output.data();
     size_t outLeft = output.size();
-    const size_t result = iconv(cd, &input, &inLeft, &out, &outLeft);
+    const size_t result = callIconv(&iconv, cd, bytes.data(), &inLeft, &out, &outLeft);
     iconv_close(cd);
     if (result == static_cast<size_t>(-1) || inLeft != 0) throw std::runtime_error("Invalid or ambiguous text encoding");
     return std::string(output.data(), static_cast<size_t>(out - output.data()));
