@@ -5,10 +5,6 @@ EXTRA_CXXFLAGS += -std=c++17
 ifeq ($(shell uname -s),Darwin)
 EXTRA_FLAGS += -mmacosx-version-min=10.15
 endif
-ifeq ($(OS),Windows_NT)
-EXTRA_LDFLAGS += -liconv
-endif
-
 CORE_SOURCES := \
 	src/core/VocalScore.cpp \
 	src/core/Serialization.cpp \

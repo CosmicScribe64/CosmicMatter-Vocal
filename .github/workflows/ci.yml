@@ -34,9 +34,11 @@ jobs:
           unzip -q rack-sdk.zip -d .rack-sdk
       - name: Build, ABI-test, and package Rack plugin
         run: |
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" clean
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" cleandep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2 dist
           make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
       - name: Validate package contents
         run: |
           package=$(find dist -name '*.vcvplugin' -type f -print -quit)
@@ -57,9 +59,11 @@ jobs:
           unzip -q rack-sdk.zip -d .rack-sdk
       - name: Build, harness, and package
         run: |
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" clean
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" cleandep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2 dist
           make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
       - name: Validate package contents
         run: |
           package=$(find dist -name '*.vcvplugin' -type f -print -quit)
@@ -82,9 +86,11 @@ jobs:
           unzip -q rack-sdk.zip -d .rack-sdk
       - name: Build, harness, and package
         run: |
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" clean
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" cleandep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2 dist
           make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" rack-harness
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
       - name: Validate package contents
         run: |
           package=$(find dist -name '*.vcvplugin' -type f -print -quit)
@@ -114,13 +120,15 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: make jq tar unzip zip zstd mingw-w64-x86_64-gcc mingw-w64-x86_64-libiconv
+          install: make jq tar unzip zip zstd mingw-w64-x86_64-gcc
       - name: Build, ABI-test, and package Rack plugin
         shell: msys2 {0}
         run: |
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" clean
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" cleandep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dep
+          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" -j2 dist
           make -f tests/Makefile RACK_DIR="$PWD/.rack-sdk/Rack-SDK" RACK_RUNTIME_DIR="$PWD/rack-runtime" rack-harness
-          make RACK_DIR="$PWD/.rack-sdk/Rack-SDK" dist
       - name: Validate package contents
         shell: msys2 {0}
         run: |

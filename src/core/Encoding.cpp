@@ -1,29 +1,19 @@
 #include "Encoding.hpp"
 
 #include <fstream>
-#include <iconv.h>
+#include <limits>
 #include <stdexcept>
-#include <type_traits>
 #include <vector>
 
-namespace vocalrack {
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <iconv.h>
+#include <type_traits>
+#endif
 
-template <typename IconvFunction>
-static size_t callIconv(IconvFunction function, iconv_t cd, const char* bytes,
-                        size_t* inLeft, char** output, size_t* outLeft) {
-    // POSIX iconv and the two MinGW implementations disagree about whether
-    // the input buffer is `char**` or `const char**`. Select the signature
-    // exposed by the active SDK rather than relying on a platform macro that
-    // differs between GNU libiconv and win-iconv.
-    if constexpr (std::is_invocable_r_v<size_t, IconvFunction, iconv_t,
-                                        const char**, size_t*, char**, size_t*>) {
-        const char* input = bytes;
-        return function(cd, &input, inLeft, output, outLeft);
-    } else {
-        char* input = const_cast<char*>(bytes);
-        return function(cd, &input, inLeft, output, outLeft);
-    }
-}
+namespace vocalrack {
 
 bool isValidUtf8(const std::string& s) noexcept {
     const auto* p = reinterpret_cast<const unsigned char*>(s.data());
@@ -44,6 +34,23 @@ bool isValidUtf8(const std::string& s) noexcept {
     return true;
 }
 
+#ifndef _WIN32
+template <typename IconvFunction>
+static size_t callIconv(IconvFunction function, iconv_t cd, const char* bytes,
+                        size_t* inLeft, char** output, size_t* outLeft) {
+    // POSIX iconv implementations disagree about whether the input buffer is
+    // `char**` or `const char**`. Select the signature exposed by the active
+    // SDK instead of relying on implementation-specific macros.
+    if constexpr (std::is_invocable_r_v<size_t, IconvFunction, iconv_t,
+                                        const char**, size_t*, char**, size_t*>) {
+        const char* input = bytes;
+        return function(cd, &input, inLeft, output, outLeft);
+    } else {
+        char* input = const_cast<char*>(bytes);
+        return function(cd, &input, inLeft, output, outLeft);
+    }
+}
+
 static std::string iconvDecode(const std::string& bytes, const char* from) {
     iconv_t cd = iconv_open("UTF-8", from);
     if (cd == reinterpret_cast<iconv_t>(-1)) throw std::runtime_error("iconv does not support requested encoding");
@@ -56,6 +63,70 @@ static std::string iconvDecode(const std::string& bytes, const char* from) {
     if (result == static_cast<size_t>(-1) || inLeft != 0) throw std::runtime_error("Invalid or ambiguous text encoding");
     return std::string(output.data(), static_cast<size_t>(out - output.data()));
 }
+#else
+static std::string wideToUtf8(const wchar_t* input, int inputLength) {
+    if (inputLength == 0) return {};
+    const int outputLength = WideCharToMultiByte(
+        CP_UTF8, WC_ERR_INVALID_CHARS, input, inputLength, nullptr, 0, nullptr, nullptr);
+    if (outputLength <= 0) throw std::runtime_error("Invalid UTF-16 text");
+    std::string output(static_cast<size_t>(outputLength), '\0');
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, input, inputLength,
+                            output.data(), outputLength, nullptr, nullptr) != outputLength) {
+        throw std::runtime_error("Unable to encode UTF-8 text");
+    }
+    return output;
+}
+
+static std::string windowsCodePageDecode(const std::string& bytes, unsigned int codePage) {
+    if (bytes.empty()) return {};
+    if (bytes.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+        throw std::runtime_error("Encoded text is too large");
+    const int inputLength = static_cast<int>(bytes.size());
+    const int wideLength = MultiByteToWideChar(
+        codePage, MB_ERR_INVALID_CHARS, bytes.data(), inputLength, nullptr, 0);
+    if (wideLength <= 0) throw std::runtime_error("Invalid or ambiguous text encoding");
+    std::vector<wchar_t> wide(static_cast<size_t>(wideLength));
+    if (MultiByteToWideChar(codePage, MB_ERR_INVALID_CHARS, bytes.data(), inputLength,
+                            wide.data(), wideLength) != wideLength) {
+        throw std::runtime_error("Unable to decode text");
+    }
+    return wideToUtf8(wide.data(), wideLength);
+}
+
+static std::string utf16LeDecode(const std::string& bytes) {
+    static_assert(sizeof(wchar_t) == 2, "Windows wchar_t must contain one UTF-16 code unit");
+    if ((bytes.size() & 1u) != 0) throw std::runtime_error("Invalid UTF-16LE byte count");
+    if (bytes.empty()) return {};
+    const size_t unitCount = bytes.size() / 2;
+    if (unitCount > static_cast<size_t>(std::numeric_limits<int>::max()))
+        throw std::runtime_error("Encoded text is too large");
+    std::vector<wchar_t> wide(unitCount);
+    for (size_t i = 0; i < unitCount; ++i) {
+        const auto lo = static_cast<unsigned char>(bytes[i * 2]);
+        const auto hi = static_cast<unsigned char>(bytes[i * 2 + 1]);
+        wide[i] = static_cast<wchar_t>(static_cast<unsigned int>(lo) |
+                                       (static_cast<unsigned int>(hi) << 8u));
+    }
+    return wideToUtf8(wide.data(), static_cast<int>(unitCount));
+}
+#endif
+
+static std::string decodeUtf16Le(const std::string& bytes) {
+#ifdef _WIN32
+    return utf16LeDecode(bytes);
+#else
+    return iconvDecode(bytes, "UTF-16LE");
+#endif
+}
+
+static std::string decodeCp932(const std::string& bytes) {
+#ifdef _WIN32
+    return windowsCodePageDecode(bytes, 932);
+#else
+    try { return iconvDecode(bytes, "CP932"); }
+    catch (...) { return iconvDecode(bytes, "SHIFT-JIS"); }
+#endif
+}
 
 std::string decodeText(const std::string& bytes, TextEncoding* detected) {
     if (bytes.size() >= 3 && static_cast<unsigned char>(bytes[0]) == 0xEF &&
@@ -65,15 +136,14 @@ std::string decodeText(const std::string& bytes, TextEncoding* detected) {
     }
     if (bytes.size() >= 2 && static_cast<unsigned char>(bytes[0]) == 0xFF && static_cast<unsigned char>(bytes[1]) == 0xFE) {
         if (detected) *detected = TextEncoding::Utf16Le;
-        return iconvDecode(bytes.substr(2), "UTF-16LE");
+        return decodeUtf16Le(bytes.substr(2));
     }
     if (isValidUtf8(bytes)) {
         if (detected) *detected = TextEncoding::Utf8;
         return bytes;
     }
     if (detected) *detected = TextEncoding::Cp932;
-    try { return iconvDecode(bytes, "CP932"); }
-    catch (...) { return iconvDecode(bytes, "SHIFT-JIS"); }
+    return decodeCp932(bytes);
 }
 
 std::string readDecodedText(const std::filesystem::path& path, TextEncoding* detected) {

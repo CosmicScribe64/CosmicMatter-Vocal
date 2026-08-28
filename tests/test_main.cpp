@@ -121,6 +121,12 @@ static void testEncoding() {
     const std::string cp932("\x91\xab\x97\xa7\x83\x8c\x83\x43", 8);
     TextEncoding detected{}; CHECK(decodeText(cp932, &detected) == "足立レイ"); CHECK(detected == TextEncoding::Cp932);
     CHECK(decodeText("\xef\xbb\xbfhello", &detected) == "hello"); CHECK(detected == TextEncoding::Utf8Bom);
+    const std::string utf16le("\xff\xfe\xb3\x8d\xcb\x7a\xec\x30\xa4\x30", 10);
+    CHECK(decodeText(utf16le, &detected) == "足立レイ"); CHECK(detected == TextEncoding::Utf16Le);
+    bool rejectedOddUtf16 = false;
+    try { (void)decodeText(std::string("\xff\xfe\x00", 3)); }
+    catch (...) { rejectedOddUtf16 = true; }
+    CHECK(rejectedOddUtf16);
     CHECK(isValidUtf8("かな")); CHECK(!isValidUtf8(cp932));
 }
 

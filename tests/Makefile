@@ -22,11 +22,9 @@ ifeq ($(OS),Windows_NT)
 # GCC 16 otherwise reports a false free-nonheap-object warning from its own
 # vector<string> destructor when VocalModule is inlined at -O2.
 RACK_CXXFLAGS += -D_USE_MATH_DEFINES -Wno-free-nonheap-object
-LDFLAGS += -liconv
-RACK_LDFLAGS += -liconv
 RACK_HARNESS_BIN := $(BUILD)/rack-harness.exe
 # Keep the active MinGW toolchain first so the harness uses the same
-# libstdc++/libgcc/libiconv that it was just compiled against.  The official
+# libstdc++/libgcc that it was just compiled against.  The official
 # Rack directory only needs to add libRack.dll; putting it first can make a
 # newer CI compiler load Rack's older bundled C++ runtime and Windows exits
 # before main() with status 127.
