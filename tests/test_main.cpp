@@ -538,6 +538,7 @@ static void testScoreSerialization() {
         CHECK(templateFixture.sections[index].endTick == original.sections[index].endTick);
     }
     original.notes[0].phonemeTiming.positionOffsetTick = -12;
+    original.notes[0].phonemeTiming.internalPositionOffsetTicks = {18, -9};
     original.notes[0].pitchSnapFirst = false;
     original.notes[0].phonemeTiming.preutteranceDeltaMs = 8.f;
     original.notes[0].phonemeTiming.overlapDeltaMs = -3.f;
@@ -547,8 +548,22 @@ static void testScoreSerialization() {
     CHECK(!decoded.notes[0].pitchSnapFirst); CHECK(decoded.notes[1].pitchSnapFirst);
     NEAR(decoded.notes[2].pitchCents.sample(480), 20.f, 0.001f);
     CHECK(decoded.notes[0].phonemeTiming.positionOffsetTick == -12);
+    CHECK(decoded.notes[0].phonemeTiming.internalPositionOffsetTicks ==
+          std::vector<int64_t>({18, -9}));
     NEAR(*decoded.notes[0].phonemeTiming.preutteranceDeltaMs, 8.f, 0.001f);
     NEAR(*decoded.notes[0].phonemeTiming.overlapDeltaMs, -3.f, 0.001f);
+    Note boundaryNote;
+    boundaryNote.startTick = 0;
+    boundaryNote.durationTick = 480;
+    const std::vector<int64_t> automaticTicks{0, 120, 300, 420};
+    CHECK(setInternalPhonemeBoundaryTick(boundaryNote, automaticTicks, 1, 200));
+    CHECK(adjustedInternalPhonemeTick(boundaryNote, 1, automaticTicks[1]) == 200);
+    CHECK(adjustedInternalPhonemeTick(boundaryNote, 0, automaticTicks[0]) == 0);
+    CHECK(setInternalPhonemeBoundaryTick(boundaryNote, automaticTicks, 2, 190));
+    CHECK(adjustedInternalPhonemeTick(boundaryNote, 2, automaticTicks[2]) == 201);
+    CHECK(setInternalPhonemeBoundaryTick(boundaryNote, automaticTicks, 3, 900));
+    CHECK(adjustedInternalPhonemeTick(boundaryNote, 3, automaticTicks[3]) == 479);
+    CHECK(!setInternalPhonemeBoundaryTick(boundaryNote, automaticTicks, 0, 60));
     std::string migration;
     auto old = scoreFromJson(R"({"schemaVersion":1,"title":"old","bpm":90,"notes":[{"position":0,"duration":480,"tone":60,"lyric":"あ"}]})", &migration);
     CHECK(old.nominalBpm == 90); CHECK(!migration.empty()); CHECK(old.schemaVersion == 2);
@@ -672,6 +687,7 @@ static void testProjectAndUstxRoundTrip() {
     first.vibrato.rateHz = 6.25f; first.vibrato.fadeInPercent = 12.f;
     first.vibrato.fadeOutPercent = 18.f; first.vibrato.phase = 1.2f;
     first.phonemeTiming.positionOffsetTick = -14;
+    first.phonemeTiming.internalPositionOffsetTicks = {24, -11};
     first.phonemeTiming.preutteranceDeltaMs = 9.5f;
     first.phonemeTiming.overlapDeltaMs = -2.25f;
     first.phonemeTiming.attackTimeDeltaMs = 4.f;
@@ -727,6 +743,8 @@ static void testProjectAndUstxRoundTrip() {
     CHECK(!importedFirst.aliasOverride);
     CHECK(importedFirst.pitchSnapFirst == first.pitchSnapFirst);
     CHECK(importedFirst.phonemeTiming.positionOffsetTick == -14);
+    CHECK(importedFirst.phonemeTiming.internalPositionOffsetTicks ==
+          std::vector<int64_t>({24, -11}));
     NEAR(*importedFirst.phonemeTiming.preutteranceDeltaMs, 9.5f, 0.001f);
     NEAR(*importedFirst.phonemeTiming.overlapDeltaMs, -2.25f, 0.001f);
     CHECK(!importedFirst.phonemeTiming.attackTimeDeltaMs);
@@ -922,7 +940,7 @@ static void testOfficialOffline(const fs::path& singerPath) {
     // A whole-word non-silence check can pass even when a medial phoneme is
     // dropped. Prove the built-in `star` template resolves and mixes
     // all three English-to-Japanese events: す・た・う.
-    const auto englishPhrase = makeEnglishLoopPhraseScore();
+    auto englishPhrase = makeEnglishLoopPhraseScore();
     const auto star = std::find_if(englishPhrase.notes.begin(), englishPhrase.notes.end(),
         [](const Note& note) { return note.lyric == "star"; });
     CHECK(star != englishPhrase.notes.end());
@@ -936,9 +954,43 @@ static void testOfficialOffline(const fs::path& singerPath) {
     CHECK(starPhones[2]->requestedAlias == "う");
     for (const auto* phone : starPhones) {
         CHECK(phone->oto != nullptr);
+        CHECK(phone->automaticRelativeTick.has_value());
         CHECK(phone->renderedFrames > 1000);
         CHECK(phone->renderedRms > 0.005f);
     }
+    // The editor's internal white divider uses the same indexed operation as
+    // the renderer. Moving the た onset must leave す and う in place, change
+    // the rendered audio, and retain the phonemizer-authored base tick for a
+    // subsequent drag instead of applying the offset twice.
+    const size_t starIndex = static_cast<size_t>(star - englishPhrase.notes.begin());
+    const int64_t naturalSuTick = starPhones[0]->relativeTick;
+    const int64_t naturalTaTick = starPhones[1]->relativeTick;
+    const int64_t naturalUTick = starPhones[2]->relativeTick;
+    const std::vector<int64_t> starAutomaticTicks{
+        *starPhones[0]->automaticRelativeTick,
+        *starPhones[1]->automaticRelativeTick,
+        *starPhones[2]->automaticRelativeTick,
+    };
+    CHECK(setInternalPhonemeBoundaryTick(englishPhrase.notes[starIndex],
+                                         starAutomaticTicks, 1,
+                                         starAutomaticTicks[1] + 60));
+    englishPhrase.touch();
+    const auto shiftedPhrase = renderer.render(englishPhrase, singer, options);
+    std::vector<const PhonemeEvent*> shiftedStarPhones;
+    for (const auto& phone : shiftedPhrase.diagnostics.phonemes)
+        if (phone.sourceNoteId == star->id) shiftedStarPhones.push_back(&phone);
+    CHECK(shiftedStarPhones.size() == 3);
+    CHECK(shiftedStarPhones[0]->relativeTick == naturalSuTick);
+    CHECK(shiftedStarPhones[1]->relativeTick == naturalTaTick + 60);
+    CHECK(shiftedStarPhones[2]->relativeTick == naturalUTick);
+    CHECK(*shiftedStarPhones[1]->automaticRelativeTick == starAutomaticTicks[1]);
+    double internalBoundaryDifference = 0.0;
+    for (size_t frame = 0; frame < std::min(renderedPhrase.samples.size(),
+                                             shiftedPhrase.samples.size()); ++frame)
+        internalBoundaryDifference += std::abs(
+            renderedPhrase.samples[frame] - shiftedPhrase.samples[frame]);
+    CHECK(internalBoundaryDifference /
+        std::max<size_t>(1, renderedPhrase.samples.size()) > 0.0001);
 
     // Timing controls belong to the authored note that owns each resolved
     // event, including a coda allocated onto an English continuation note.

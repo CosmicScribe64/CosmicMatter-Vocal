@@ -189,6 +189,14 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
             return found == score.notes.begin() + static_cast<std::ptrdiff_t>(chainEndIndex + 1)
                 ? &note : &*found;
         };
+        std::unordered_map<std::string, size_t> sourcePhoneIndices;
+        for (auto& phone : phones) {
+            const Note* sourceNote = sourceNoteFor(phone);
+            const size_t sourcePhoneIndex = sourcePhoneIndices[phone.sourceNoteId]++;
+            phone.automaticRelativeTick = phone.relativeTick;
+            phone.relativeTick = adjustedInternalPhonemeTick(
+                *sourceNote, sourcePhoneIndex, phone.relativeTick);
+        }
         for (size_t phoneIndex = 0; phoneIndex < phones.size(); ++phoneIndex) {
         auto phone = phones[phoneIndex];
         const Note* eventNote = sourceNoteFor(phone);

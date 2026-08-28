@@ -31,7 +31,7 @@ struct VocalEditor : rack::widget::OpaqueWidget {
 private:
     enum class EditMode { Notes, Pitch, Dynamics };
     enum class NoteTool { Select, Draw, Erase, Slice };
-    enum class TimingHandle { None, Position, Preutterance, Overlap };
+    enum class TimingHandle { None, Position, Preutterance, Overlap, InternalBoundary };
     enum class InspectorField {
         None,
         Lyric,
@@ -120,7 +120,10 @@ private:
     CurvePoint curvePointStart_;
     TimingHandle timingHandle_ = TimingHandle::None;
     size_t timingNoteIndex_ = std::numeric_limits<size_t>::max();
+    size_t timingPhoneIndex_ = std::numeric_limits<size_t>::max();
     int64_t timingStartPositionTick_ = 0;
+    int64_t timingStartBoundaryTick_ = 0;
+    std::vector<int64_t> timingBoundaryAutomaticTicks_;
     rack::math::Vec timingDragPixels_;
     std::string timingDragBefore_;
     float timingStartActualMs_ = 0.f;

@@ -627,22 +627,28 @@ static Parsed parse(const std::filesystem::path& path) {
                                     note->phonemeOverrides.size(), static_cast<size_t>(index) + 1));
                                 note->phonemeOverrides[static_cast<size_t>(index)] = m.at("phoneme");
                             }
-                            // VocalRack V1 exposes one shared envelope/timing
-                            // set in the inspector. Preserve OpenUtau's first
-                            // event timing there; higher indexed aliases still
-                            // round-trip and render exactly.
                             if (index == 0) {
                                 if (m.count("offset")) note->phonemeTiming.positionOffsetTick = number<int64_t>(m.at("offset"), 0);
                                 note->phonemeTiming.preutteranceDeltaMs = value("preutter_delta", "preutterDelta");
                                 note->phonemeTiming.overlapDeltaMs = value("overlap_delta", "overlapDelta");
                                 note->phonemeTiming.attackTimeDeltaMs = value("attack_time_delta", "attackTimeDelta");
                                 note->phonemeTiming.releaseTimeDeltaMs = value("release_time_delta", "releaseTimeDelta");
-                            } else if (m.count("offset") || value("preutter_delta", "preutterDelta") ||
+                            } else {
+                                if (m.count("offset")) {
+                                    note->phonemeTiming.internalPositionOffsetTicks.resize(std::max<size_t>(
+                                        note->phonemeTiming.internalPositionOffsetTicks.size(),
+                                        static_cast<size_t>(index)));
+                                    note->phonemeTiming.internalPositionOffsetTicks[static_cast<size_t>(index) - 1] =
+                                        number<int64_t>(m.at("offset"), 0);
+                                }
+                                if (value("preutter_delta", "preutterDelta") ||
                                        value("overlap_delta", "overlapDelta") ||
                                        value("attack_time_delta", "attackTimeDelta") ||
                                        value("release_time_delta", "releaseTimeDelta")) {
-                                p.ignored.push_back("USTX timing/envelope fields for phoneme index " +
-                                    std::to_string(index) + " (the exact indexed alias is preserved)");
+                                    p.ignored.push_back("USTX envelope fields for phoneme index " +
+                                        std::to_string(index) +
+                                        " (its exact alias and position offset are preserved)");
+                                }
                             }
                         }
                     }

@@ -225,7 +225,11 @@ Most notes should use the timing supplied by the voicebank. Use these controls w
 
 The phoneme lane shows the resolved alias and its envelope:
 
+- Adjacent phonemes form one continuous strip. A straight seam means they meet;
+  an X means they crossfade.
 - Drag any envelope body horizontally to move all resolved phonemes for that note.
+- Drag a white internal divider (or its cyan grip) to retime only that phoneme.
+  The divider cannot cross its neighbours.
 - Drag **START** to move preutterance.
 - Drag **XFADE** to change overlap with the previous phoneme.
 - Use the note inspector or the note's context menu for exact values.
@@ -235,6 +239,7 @@ The timing fields are:
 | Field | Effect |
 |---|---|
 | **POSITION** | Moves every resolved phoneme for the note in score ticks. |
+| **INTERNAL DIVIDER** | Moves one resolved phoneme boundary without shifting the word. |
 | **PREUTTER** | Starts the sample before or after its inherited preutterance time. |
 | **OVERLAP** | Changes its crossfade with the preceding phoneme. |
 | **ATTACK** | Changes the start fade. |
@@ -373,7 +378,7 @@ Rack also stores the module state in the containing `.vcv` patch. Rendered audio
 
 Choose **File > Export OpenUtau USTX...** or press `Ctrl/Cmd+Shift+S`.
 
-USTX carries compatible notes, lyrics, pitch and dynamics curves, vibrato, tempo, meter, phonetic hints, and supported timing values.
+USTX carries compatible notes, lyrics, pitch and dynamics curves, vibrato, tempo, meter, phonetic hints, and supported timing values. Internal divider edits use OpenUtau's indexed phoneme-position offsets and survive import/export in either direction.
 
 It does not carry Rack cables, CV depths, playback latches, Vocal sections, or every Vocal timing offset. Keep the `.vocalrack` file beside the USTX if the Rack performance must remain reproducible.
 

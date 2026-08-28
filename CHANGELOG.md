@@ -18,6 +18,10 @@ Initial public release candidate for VCV Rack 2.
   expression CV, pitch curves, dynamics, vibrato, and phoneme timing.
 - OpenUtau-style monophonic collision editing: newly drawn, moved, resized, or
   pasted notes take priority and trim/remove covered notes in one undoable edit.
+- Independently draggable internal phoneme dividers with clamping, undo,
+  lossless project persistence, rendering, and OpenUtau indexed-offset exchange.
+- OpenUtau-style continuous phoneme regions: adjacent sounds meet at a shared
+  boundary, while positive overlap is shown as an X-shaped crossfade.
 - Cross-platform CI definitions for Linux x64, Windows x64, macOS x64, and
   macOS arm64.
 - Automated renderer comparisons against pinned OpenUtau Classic plus a real

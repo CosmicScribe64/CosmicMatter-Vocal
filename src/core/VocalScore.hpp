@@ -36,6 +36,12 @@ struct Vibrato {
 // the same concepts as phoneme-position and envelope handles.
 struct PhonemeTiming {
     std::optional<int64_t> positionOffsetTick;
+    // Offsets for the starts of phoneme events 1..N. Event 0 continues to
+    // use positionOffsetTick because its START/XFADE envelope is edited as a
+    // unit. These indexed offsets are OpenUtau phoneme_override offsets and
+    // let the score editor move an internal divider without shifting the
+    // whole word.
+    std::vector<int64_t> internalPositionOffsetTicks;
     std::optional<float> preutteranceDeltaMs;
     std::optional<float> overlapDeltaMs;
     std::optional<float> attackTimeDeltaMs;
@@ -119,6 +125,20 @@ struct EditorNoteGesture {
 
 void placeEditorDrawnNote(VocalScore& score, Note note);
 void applyEditorNoteGesture(VocalScore& score, const EditorNoteGesture& gesture);
+
+// Returns the performed start tick for one event before the note-wide
+// positionOffsetTick is added. automaticTick is the phonemizer's position.
+int64_t adjustedInternalPhonemeTick(const Note& note, size_t phonemeIndex,
+                                    int64_t automaticTick) noexcept;
+
+// Shared by the Rack divider drag and regression tests. automaticTicks must
+// be in phonemizer order. The selected internal boundary (index 1..N-1) is
+// clamped between its neighbours and persisted as an indexed USTX-compatible
+// offset. Trailing zero offsets are removed.
+bool setInternalPhonemeBoundaryTick(Note& note,
+                                    const std::vector<int64_t>& automaticTicks,
+                                    size_t phonemeIndex,
+                                    int64_t desiredTick);
 
 std::string makeUuid();
 VocalScore makeDefaultScore();

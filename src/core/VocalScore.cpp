@@ -58,6 +58,8 @@ std::vector<std::string> VocalScore::validate() const {
             errors.emplace_back("Note " + note.id + " end tick overflows");
         if (note.midiNote < 0 || note.midiNote > 127) errors.emplace_back("Note " + note.id + " has invalid MIDI pitch");
         if (note.phonemeOverrides.size() > 256) errors.emplace_back("Note " + note.id + " has too many phoneme overrides");
+        if (note.phonemeTiming.internalPositionOffsetTicks.size() > 255)
+            errors.emplace_back("Note " + note.id + " has too many internal phoneme offsets");
         const auto finiteCurve = [](const Curve& curve) {
             return curve.points.size() <= 1000000 && std::all_of(curve.points.begin(), curve.points.end(),
                 [](const CurvePoint& point) { return std::isfinite(point.value); });
@@ -99,6 +101,13 @@ void VocalScore::normalize() {
             note.phonemeTiming.positionOffsetTick = std::clamp(*note.phonemeTiming.positionOffsetTick,
                 -note.durationTick, maxOffset);
         }
+        if (note.phonemeTiming.internalPositionOffsetTicks.size() > 255)
+            note.phonemeTiming.internalPositionOffsetTicks.resize(255);
+        for (auto& offset : note.phonemeTiming.internalPositionOffsetTicks)
+            offset = std::clamp(offset, -note.durationTick, note.durationTick);
+        while (!note.phonemeTiming.internalPositionOffsetTicks.empty() &&
+               note.phonemeTiming.internalPositionOffsetTicks.back() == 0)
+            note.phonemeTiming.internalPositionOffsetTicks.pop_back();
         auto clampTiming = [](std::optional<float>& value) {
             if (value && !std::isfinite(*value)) value.reset();
             else if (value) *value = std::clamp(*value, -500.f, 500.f);
@@ -281,6 +290,51 @@ void applyEditorNoteGesture(VocalScore& score, const EditorNoteGesture& gesture)
             snapAbsolute(edited->durationTick + deltaTick));
     }
     resolveMonophonicOverwrite(score, {edited->id});
+}
+
+int64_t adjustedInternalPhonemeTick(const Note& note, size_t phonemeIndex,
+                                    int64_t automaticTick) noexcept {
+    if (phonemeIndex == 0 || phonemeIndex - 1 >= note.phonemeTiming.internalPositionOffsetTicks.size())
+        return automaticTick;
+    const int64_t offset = note.phonemeTiming.internalPositionOffsetTicks[phonemeIndex - 1];
+    if (offset > 0 && automaticTick > std::numeric_limits<int64_t>::max() - offset)
+        return std::numeric_limits<int64_t>::max();
+    if (offset < 0 && automaticTick < std::numeric_limits<int64_t>::min() - offset)
+        return std::numeric_limits<int64_t>::min();
+    return automaticTick + offset;
+}
+
+bool setInternalPhonemeBoundaryTick(Note& note,
+                                    const std::vector<int64_t>& automaticTicks,
+                                    size_t phonemeIndex,
+                                    int64_t desiredTick) {
+    if (phonemeIndex == 0 || phonemeIndex >= automaticTicks.size()) return false;
+
+    const auto adjusted = [&](size_t index) {
+        return adjustedInternalPhonemeTick(note, index, automaticTicks[index]);
+    };
+    const int64_t lower = adjusted(phonemeIndex - 1) == std::numeric_limits<int64_t>::max()
+        ? std::numeric_limits<int64_t>::max() : adjusted(phonemeIndex - 1) + 1;
+    int64_t upper = note.endTick() == std::numeric_limits<int64_t>::min()
+        ? std::numeric_limits<int64_t>::min() : note.endTick() - 1;
+    if (phonemeIndex + 1 < automaticTicks.size()) {
+        const int64_t next = adjusted(phonemeIndex + 1);
+        upper = next == std::numeric_limits<int64_t>::min()
+            ? std::numeric_limits<int64_t>::min() : next - 1;
+    }
+    if (upper < lower) return false;
+
+    const int64_t clamped = std::clamp(desiredTick, lower, upper);
+    int64_t offset = 0;
+    if (clamped > automaticTicks[phonemeIndex])
+        offset = clamped - automaticTicks[phonemeIndex];
+    else if (clamped < automaticTicks[phonemeIndex])
+        offset = -(automaticTicks[phonemeIndex] - clamped);
+    auto& offsets = note.phonemeTiming.internalPositionOffsetTicks;
+    if (offsets.size() < phonemeIndex) offsets.resize(phonemeIndex, 0);
+    offsets[phonemeIndex - 1] = offset;
+    while (!offsets.empty() && offsets.back() == 0) offsets.pop_back();
+    return true;
 }
 
 std::string makeUuid() {

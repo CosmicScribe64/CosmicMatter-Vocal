@@ -6,6 +6,7 @@
 #include <memory>
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,10 @@ struct PhonemeEvent {
     std::string requestedAlias;
     std::string selectedAlias;
     int64_t relativeTick = 0;
+    // Native V1 records the phonemizer-authored position before applying an
+    // indexed internal-boundary offset. Editor drags use this stable value so
+    // a saved offset is never applied twice while diagnostics refresh.
+    std::optional<int64_t> automaticRelativeTick;
     int targetMidiNote = 60;
     double sourcePitchHz = 0.0;
     std::string sourceNoteId;

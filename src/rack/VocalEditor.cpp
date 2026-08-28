@@ -67,6 +67,16 @@ std::string joinPhonemes(const std::vector<std::string>& aliases) {
     return out.str();
 }
 
+int64_t automaticPhoneTick(const PhonemeEvent& phone) {
+    return phone.automaticRelativeTick.value_or(phone.relativeTick);
+}
+
+int64_t displayedPhoneTick(const Note& note, size_t phoneIndex,
+                           const PhonemeEvent& phone) {
+    return adjustedInternalPhonemeTick(note, phoneIndex, automaticPhoneTick(phone)) +
+        note.phonemeTiming.positionOffsetTick.value_or(0);
+}
+
 const NVGcolor kBackdrop = nvgRGBA(5, 8, 13, 235);
 const NVGcolor kWindow = nvgRGB(19, 24, 33);
 const NVGcolor kSurface = nvgRGB(24, 30, 40);
@@ -844,7 +854,7 @@ std::pair<size_t, size_t> VocalEditor::phonemeAt(rack::math::Vec pos) const {
         for (const auto& phone : diagnostics.phonemes)
             if (phone.sourceNoteId == note.id) phones.push_back(&phone);
         std::stable_sort(phones.begin(), phones.end(), [](const auto* left, const auto* right) {
-            return left->relativeTick < right->relativeTick;
+            return automaticPhoneTick(*left) < automaticPhoneTick(*right);
         });
         const int64_t offset = note.phonemeTiming.positionOffsetTick.value_or(0);
         if (phones.empty()) {
@@ -854,9 +864,10 @@ std::pair<size_t, size_t> VocalEditor::phonemeAt(rack::math::Vec pos) const {
         }
         for (size_t phoneIndex = phones.size(); phoneIndex-- > 0;) {
             const auto& phone = *phones[phoneIndex];
-            const int64_t position = phone.relativeTick + offset;
+            const int64_t position = displayedPhoneTick(note, phoneIndex, phone);
             const int64_t end = phoneIndex + 1 < phones.size()
-                ? std::max<int64_t>(position + 1, phones[phoneIndex + 1]->relativeTick + offset)
+                ? std::max<int64_t>(position + 1,
+                    displayedPhoneTick(note, phoneIndex + 1, *phones[phoneIndex + 1]))
                 : note.endTick();
             const int64_t preutter = phone.oto ? static_cast<int64_t>(std::llround(
                 std::clamp(static_cast<float>(phone.oto->preutterMs) +
@@ -925,8 +936,7 @@ void VocalEditor::addNoteAt(rack::math::Vec pos) {
     note.lyric = isJapanesePhonemizer(module_->phonemizerName) ? "あ" : "a";
 
     const std::string id = note.id;
-    module_->score.notes.push_back(std::move(note));
-    resolveMonophonicOverwrite(module_->score, {id});
+    placeEditorDrawnNote(module_->score, std::move(note));
     const auto errors = module_->score.validate();
     if (!errors.empty()) {
         module_->score = scoreFromJson(before);
@@ -1736,7 +1746,7 @@ void VocalEditor::draw(const DrawArgs& args) {
             if (phone.sourceNoteId == note.id) notePhones.push_back(&phone);
         }
         std::stable_sort(notePhones.begin(), notePhones.end(), [](const auto* left, const auto* right) {
-            return left->relativeTick < right->relativeTick;
+            return automaticPhoneTick(*left) < automaticPhoneTick(*right);
         });
         const bool selected = selection_.count(i) != 0;
         if (notePhones.empty()) {
@@ -1765,11 +1775,10 @@ void VocalEditor::draw(const DrawArgs& args) {
             std::string alias = phone.selectedAlias.empty() ? phone.requestedAlias : phone.selectedAlias;
             const bool missing = !phone.oto;
             if (missing) alias = "MISSING: " + alias;
-            const int64_t timingOffset = note.phonemeTiming.positionOffsetTick.value_or(0);
-            const int64_t positionTick = phone.relativeTick + timingOffset;
+            const int64_t positionTick = displayedPhoneTick(note, phoneIndex, phone);
             const int64_t eventEndTick = !lastPhone
                 ? std::max<int64_t>(positionTick + 1,
-                    notePhones[phoneIndex + 1]->relativeTick + timingOffset)
+                    displayedPhoneTick(note, phoneIndex + 1, *notePhones[phoneIndex + 1]))
                 : note.endTick();
             const float positionX = piano_.pos.x +
                 (positionTick - module_->editorScrollX) * module_->editorZoomX;
@@ -1791,13 +1800,14 @@ void VocalEditor::draw(const DrawArgs& args) {
             const float overlapMs = std::clamp(static_cast<float>(phone.oto->overlapMs) +
                 (firstPhone ? note.phonemeTiming.overlapDeltaMs.value_or(0.f) : 0.f),
                 -500.f, preutterMs);
-            const float fadeInMs = std::clamp((overlapMs > 0.f ? overlapMs : 5.f) +
+            const float fadeInMs = std::clamp((overlapMs > 0.f ? overlapMs : 0.f) +
                 (firstPhone ? note.phonemeTiming.attackTimeDeltaMs.value_or(0.f) : 0.f),
                 0.f, 500.f);
             float envelopeEndTick = static_cast<float>(eventEndTick);
             float naturalFadeOutMs = 35.f;
             const PhonemeEvent* nextPhone = !lastPhone ? notePhones[phoneIndex + 1] : nullptr;
             const Note* nextPhoneNote = &note;
+            size_t nextPhoneIndex = phoneIndex + 1;
             bool nextIsFirst = false;
             if (!nextPhone && i + 1 < module_->score.notes.size() &&
                 module_->score.notes[i + 1].startTick == note.endTick()) {
@@ -1808,6 +1818,7 @@ void VocalEditor::draw(const DrawArgs& args) {
                     });
                 if (found != diagnostics.phonemes.end()) {
                     nextPhone = &*found;
+                    nextPhoneIndex = 0;
                     nextIsFirst = true;
                 }
             }
@@ -1818,11 +1829,19 @@ void VocalEditor::draw(const DrawArgs& args) {
                 const float nextOverlap = std::clamp(static_cast<float>(nextPhone->oto->overlapMs) +
                     (nextIsFirst ? nextPhoneNote->phonemeTiming.overlapDeltaMs.value_or(0.f) : 0.f),
                     -500.f, nextPreutter);
-                const int64_t nextPosition = nextPhone->relativeTick +
-                    nextPhoneNote->phonemeTiming.positionOffsetTick.value_or(0);
+                const int64_t nextPosition = displayedPhoneTick(
+                    *nextPhoneNote, nextPhoneIndex, *nextPhone);
+                // Negative oto overlap describes resampler timing, but drawing it
+                // literally leaves an empty visual gap between adjacent phonemes.
+                // The lane is an editable partition: a boundary must shorten one
+                // region while lengthening its neighbour. Clamp only the display
+                // overlap at zero so adjacent regions meet; positive overlap still
+                // draws the familiar crossfade intersection and audio timing is
+                // unchanged.
+                const float displayedNextOverlap = std::max(0.f, nextOverlap);
                 envelopeEndTick = static_cast<float>(nextPosition +
-                    (nextOverlap - nextPreutter) * timingTicksPerMs);
-                naturalFadeOutMs = nextOverlap > 0.f ? nextOverlap : 35.f;
+                    (displayedNextOverlap - nextPreutter) * timingTicksPerMs);
+                naturalFadeOutMs = nextOverlap > 0.f ? nextOverlap : 0.f;
             }
             const float fadeOutMs = std::clamp(naturalFadeOutMs +
                 (lastPhone ? note.phonemeTiming.releaseTimeDeltaMs.value_or(0.f) : 0.f),
@@ -1864,6 +1883,16 @@ void VocalEditor::draw(const DrawArgs& args) {
             nvgStrokeColor(vg, selected ? nvgRGBA(255, 255, 255, 210) : nvgRGBA(255, 255, 255, 80));
             nvgStrokeWidth(vg, selected ? 1.5f : 0.8f);
             nvgStroke(vg);
+            if (selected && !firstPhone) {
+                // The internal boundary is a first-class edit handle, not a
+                // decorative divider. A visible grip and wider hit target
+                // make precise consonant/vowel timing discoverable.
+                const float handleY = phonemeLane_.pos.y + phonemeLane_.size.y * 0.5f;
+                nvgBeginPath(vg);
+                nvgCircle(vg, positionX, handleY, 5.f);
+                nvgFillColor(vg, kSurface); nvgFill(vg);
+                nvgStrokeColor(vg, kCyan); nvgStrokeWidth(vg, 2.f); nvgStroke(vg);
+            }
             if (eventEndX - positionX > 18.f)
                 text(vg, positionX + 6.f, phonemeLane_.pos.y +
                     phonemeLane_.size.y * 0.5f, 10.f, kText, alias);
@@ -1997,7 +2026,7 @@ void VocalEditor::draw(const DrawArgs& args) {
     std::string help;
     if (inlineLyricField_) help = "TYPE LYRIC  |  romaji to kana  |  Return commits  |  Tab advances  |  Shift+Tab returns  |  Esc cancels";
     else if (insertingLyric_) help = "INSERT LYRIC: click a gap to add a note, or split a note at the snapped position | Esc cancels";
-    else if (mode_ == EditMode::Notes && noteTool_ == NoteTool::Select) help = "SELECT: click, drag, or resize notes | drag empty space for box selection | Shift adds | double-click a lyric to type";
+    else if (mode_ == EditMode::Notes && noteTool_ == NoteTool::Select) help = "SELECT: move/resize notes | box-select empty space | phoneme lane: drag white dividers independently | double-click lyric to type";
     else if (mode_ == EditMode::Notes && noteTool_ == NoteTool::Draw) help = "PENCIL: drag empty space to draw | drag a note to move | drag either edge to resize";
     else if (mode_ == EditMode::Notes && noteTool_ == NoteTool::Erase) help = "ERASE: click a note to remove it | Undo restores it";
     else if (mode_ == EditMode::Notes) help = "SLICE: click inside a note to split it | the right half continues the vowel with +";
@@ -2194,11 +2223,43 @@ bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
     for (const auto noteIndex : selection_) {
         if (noteIndex >= module_->score.notes.size()) continue;
         const auto& note = module_->score.notes[noteIndex];
-        const auto phone = std::find_if(diagnostics.phonemes.begin(), diagnostics.phonemes.end(),
-            [&](const PhonemeEvent& candidate) { return candidate.sourceNoteId == note.id && candidate.oto; });
-        if (phone == diagnostics.phonemes.end()) continue;
+        std::vector<const PhonemeEvent*> phones;
+        for (const auto& candidate : diagnostics.phonemes)
+            if (candidate.sourceNoteId == note.id) phones.push_back(&candidate);
+        std::stable_sort(phones.begin(), phones.end(), [](const auto* left, const auto* right) {
+            return automaticPhoneTick(*left) < automaticPhoneTick(*right);
+        });
+        if (phones.empty()) continue;
+
+        // Internal dividers win over the broad body hit. Previously clicking
+        // one of these white lines fell through to Position and shifted every
+        // event in the word, which is exactly the surprising behaviour the
+        // visible divider implied should not happen.
+        for (size_t phoneIndex = 1; phoneIndex < phones.size(); ++phoneIndex) {
+            const float boundaryX = piano_.pos.x +
+                (displayedPhoneTick(note, phoneIndex, *phones[phoneIndex]) - module_->editorScrollX) *
+                    module_->editorZoomX;
+            if (std::abs(pos.x - boundaryX) > 10.f) continue;
+            timingHandle_ = TimingHandle::InternalBoundary;
+            timingNoteIndex_ = noteIndex;
+            timingPhoneIndex_ = phoneIndex;
+            timingBoundaryAutomaticTicks_.clear();
+            timingBoundaryAutomaticTicks_.reserve(phones.size());
+            for (const auto* event : phones)
+                timingBoundaryAutomaticTicks_.push_back(automaticPhoneTick(*event));
+            timingStartBoundaryTick_ = adjustedInternalPhonemeTick(
+                note, phoneIndex, timingBoundaryAutomaticTicks_[phoneIndex]);
+            timingDragBefore_ = scoreToJson(module_->score);
+            timingDragPixels_ = {};
+            timingDragging_ = true;
+            clearCurvePointSelection();
+            return true;
+        }
+
+        const auto* phone = phones.front();
+        if (!phone->oto) continue;
         const float positionX = piano_.pos.x +
-            (phone->relativeTick + note.phonemeTiming.positionOffsetTick.value_or(0) - module_->editorScrollX) *
+            (displayedPhoneTick(note, 0, *phone) - module_->editorScrollX) *
                 module_->editorZoomX;
         const float actualPreutter = std::clamp(static_cast<float>(phone->oto->preutterMs) +
             note.phonemeTiming.preutteranceDeltaMs.value_or(0.f), 0.f, 500.f);
@@ -2227,6 +2288,8 @@ bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
             continue;
         }
         timingNoteIndex_ = noteIndex;
+        timingPhoneIndex_ = 0;
+        timingBoundaryAutomaticTicks_.clear();
         timingDragBefore_ = scoreToJson(module_->score);
         timingDragPixels_ = {};
         timingDragging_ = true;
@@ -2569,7 +2632,15 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
         timingDragPixels_ = timingDragPixels_.plus(e.mouseDelta);
         module_->score = scoreFromJson(timingDragBefore_);
         if (timingNoteIndex_ >= module_->score.notes.size()) return;
-        auto& timing = module_->score.notes[timingNoteIndex_].phonemeTiming;
+        auto& note = module_->score.notes[timingNoteIndex_];
+        auto& timing = note.phonemeTiming;
+        if (timingHandle_ == TimingHandle::InternalBoundary) {
+            const int64_t deltaTick = static_cast<int64_t>(std::llround(
+                timingDragPixels_.x / std::max(0.02f, module_->editorZoomX)));
+            setInternalPhonemeBoundaryTick(note, timingBoundaryAutomaticTicks_,
+                                           timingPhoneIndex_, timingStartBoundaryTick_ + deltaTick);
+            return;
+        }
         if (timingHandle_ == TimingHandle::Position) {
             const int64_t deltaTick = static_cast<int64_t>(std::llround(
                 timingDragPixels_.x / std::max(0.02f, module_->editorZoomX)));
@@ -2672,10 +2743,13 @@ void VocalEditor::onDragEnd(const DragEndEvent&) {
         module_->score.normalize();
         const char* label = timingHandle_ == TimingHandle::Position ? "Move phoneme position"
             : timingHandle_ == TimingHandle::Preutterance ? "Move phoneme start"
-            : "Move phoneme overlap";
+            : timingHandle_ == TimingHandle::Overlap ? "Move phoneme overlap"
+            : "Move internal phoneme boundary";
         module_->commitScoreEdit(timingDragBefore_, label);
         timingHandle_ = TimingHandle::None;
         timingNoteIndex_ = std::numeric_limits<size_t>::max();
+        timingPhoneIndex_ = std::numeric_limits<size_t>::max();
+        timingBoundaryAutomaticTicks_.clear();
         return;
     }
     if (curveDragging_) {
@@ -3236,7 +3310,7 @@ std::string VocalEditor::inspectorValue(InspectorField field) const {
             for (const auto& phone : diagnostics.phonemes)
                 if (phone.sourceNoteId == note.id) phones.push_back(&phone);
             std::stable_sort(phones.begin(), phones.end(), [](const auto* left, const auto* right) {
-                return left->relativeTick < right->relativeTick;
+                return automaticPhoneTick(*left) < automaticPhoneTick(*right);
             });
             if (phones.empty()) return "AUTO";
             std::vector<std::string> aliases;
@@ -3619,6 +3693,7 @@ void VocalEditor::resetSelectedVoiceShaping() {
                   note.vibrato.fadeInPercent != Vibrato{}.fadeInPercent ||
                   note.vibrato.fadeOutPercent != Vibrato{}.fadeOutPercent ||
                   timing.positionOffsetTick.has_value() || timing.preutteranceDeltaMs.has_value() ||
+                  !timing.internalPositionOffsetTicks.empty() ||
                   timing.overlapDeltaMs.has_value() || timing.attackTimeDeltaMs.has_value() ||
                   timing.releaseTimeDeltaMs.has_value();
         note.aliasOverride.reset();

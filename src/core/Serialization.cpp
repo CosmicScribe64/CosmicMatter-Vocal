@@ -43,6 +43,8 @@ std::string scoreToJson(const VocalScore& score, bool pretty) {
         if (!note.phonemeOverrides.empty()) n["phonemeOverrides"] = note.phonemeOverrides;
         json timing = json::object();
         if (note.phonemeTiming.positionOffsetTick) timing["positionOffsetTick"] = *note.phonemeTiming.positionOffsetTick;
+        if (!note.phonemeTiming.internalPositionOffsetTicks.empty())
+            timing["internalPositionOffsetTicks"] = note.phonemeTiming.internalPositionOffsetTicks;
         if (note.phonemeTiming.preutteranceDeltaMs) timing["preutteranceDeltaMs"] = *note.phonemeTiming.preutteranceDeltaMs;
         if (note.phonemeTiming.overlapDeltaMs) timing["overlapDeltaMs"] = *note.phonemeTiming.overlapDeltaMs;
         if (note.phonemeTiming.attackTimeDeltaMs) timing["attackTimeDeltaMs"] = *note.phonemeTiming.attackTimeDeltaMs;
@@ -97,6 +99,13 @@ VocalScore scoreFromJson(const std::string& jsonText, std::string* migrationNote
         const auto timing = n.value("phonemeTiming", json::object());
         if (timing.contains("positionOffsetTick") && timing["positionOffsetTick"].is_number_integer())
             note.phonemeTiming.positionOffsetTick = timing["positionOffsetTick"].get<int64_t>();
+        if (timing.contains("internalPositionOffsetTicks")) {
+            if (!timing["internalPositionOffsetTicks"].is_array() ||
+                timing["internalPositionOffsetTicks"].size() > 255)
+                throw std::runtime_error("Note exceeds the internal phoneme-offset limit");
+            note.phonemeTiming.internalPositionOffsetTicks =
+                timing["internalPositionOffsetTicks"].get<std::vector<int64_t>>();
+        }
         if (timing.contains("preutteranceDeltaMs") && timing["preutteranceDeltaMs"].is_number())
             note.phonemeTiming.preutteranceDeltaMs = timing["preutteranceDeltaMs"].get<float>();
         if (timing.contains("overlapDeltaMs") && timing["overlapDeltaMs"].is_number())

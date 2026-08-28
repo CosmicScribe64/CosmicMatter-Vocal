@@ -92,25 +92,36 @@ UstxExportResult exportUstx(const VocalScore& source, const UstxExportOptions& o
         const auto& timing = note.phonemeTiming;
         const bool hasIndexedOverride = std::any_of(note.phonemeOverrides.begin(),
             note.phonemeOverrides.end(), [](const std::string& alias) { return !alias.empty(); });
+        const bool hasInternalPositionOffset = std::any_of(
+            timing.internalPositionOffsetTicks.begin(), timing.internalPositionOffsetTicks.end(),
+            [](int64_t offset) { return offset != 0; });
         const bool officialOverride = note.aliasOverride || hasIndexedOverride ||
-            timing.positionOffsetTick || timing.preutteranceDeltaMs || timing.overlapDeltaMs;
+            timing.positionOffsetTick || hasInternalPositionOffset ||
+            timing.preutteranceDeltaMs || timing.overlapDeltaMs;
         if (officialOverride) {
             hasAlias = hasAlias || note.aliasOverride.has_value() || hasIndexedOverride;
             hasTiming = true;
             out << "    phoneme_overrides:\n";
-            const size_t overrideCount = std::max<size_t>(1, note.phonemeOverrides.size());
+            const size_t overrideCount = std::max<size_t>(
+                1, std::max(note.phonemeOverrides.size(),
+                            timing.internalPositionOffsetTicks.size() + 1));
             for (size_t index = 0; index < overrideCount; ++index) {
                 const std::string* alias = index < note.phonemeOverrides.size() &&
                                                    !note.phonemeOverrides[index].empty()
                                                ? &note.phonemeOverrides[index]
                                                : nullptr;
                 if (index == 0 && !alias && note.aliasOverride) alias = &*note.aliasOverride;
-                const bool indexHasTiming = index == 0 &&
-                    (timing.positionOffsetTick || timing.preutteranceDeltaMs || timing.overlapDeltaMs);
+                const bool indexHasTiming = index == 0
+                    ? timing.positionOffsetTick || timing.preutteranceDeltaMs || timing.overlapDeltaMs
+                    : index - 1 < timing.internalPositionOffsetTicks.size() &&
+                        timing.internalPositionOffsetTicks[index - 1] != 0;
                 if (!alias && !indexHasTiming) continue;
                 out << "    - {index: " << index;
                 if (alias) out << ", phoneme: " << yamlString(*alias);
                 if (index == 0 && timing.positionOffsetTick) out << ", offset: " << *timing.positionOffsetTick;
+                if (index > 0 && index - 1 < timing.internalPositionOffsetTicks.size() &&
+                    timing.internalPositionOffsetTicks[index - 1] != 0)
+                    out << ", offset: " << timing.internalPositionOffsetTicks[index - 1];
                 if (index == 0 && timing.preutteranceDeltaMs) out << ", preutter_delta: " << number(*timing.preutteranceDeltaMs);
                 if (index == 0 && timing.overlapDeltaMs) out << ", overlap_delta: " << number(*timing.overlapDeltaMs);
                 out << "}\n";
