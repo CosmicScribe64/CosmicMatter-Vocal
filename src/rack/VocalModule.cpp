@@ -82,6 +82,22 @@ void VocalModule::requestRerender() {
     status.store(ModuleStatus::Rendering, std::memory_order_release);
 }
 
+RenderDiagnostics VocalModule::copyCurrentDiagnostics() const {
+    // A score edit invalidates the published audio immediately, but the
+    // background renderer intentionally keeps ownership of that buffer until
+    // its replacement is ready.  Never combine those stale phoneme positions
+    // with the new score in either editor view: long regions can otherwise
+    // collapse into crossed wedges for a frame (or for the whole render).
+    const uint64_t request = renderRequest.load(std::memory_order_acquire);
+    if (renderSlot->publishedRequestSerial.load(std::memory_order_acquire) != request)
+        return {};
+    auto diagnostics = renderSlot->copyDiagnostics();
+    if (renderRequest.load(std::memory_order_acquire) != request ||
+        renderSlot->publishedRequestSerial.load(std::memory_order_acquire) != request)
+        return {};
+    return diagnostics;
+}
+
 void VocalModule::serviceNonRealtime() {
     const uint64_t request = renderRequest.load(std::memory_order_acquire);
     if (request == servicedRequest_) return;

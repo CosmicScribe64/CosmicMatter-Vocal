@@ -216,6 +216,10 @@ static void testModulationPersistenceRatesAndMissingSinger() {
     module.score.notes.front().lyric = "い";
     module.requestRerender();
     CHECK(module.renderRequest.load() != priorPublication);
+    // Editor diagnostics must obey the same generation gate as audio.  Using
+    // the prior phone positions with the edited score made first-open phoneme
+    // regions collapse into tiny crossed wedges until the render completed.
+    CHECK(module.copyCurrentDiagnostics().phonemes.empty());
     rack::engine::Module::ProcessArgs args{48000.f, 1.f / 48000.f, 0};
     double staleTail = 0.0;
     for (int frame = 0; frame < 4096; ++frame) {
@@ -227,6 +231,7 @@ static void testModulationPersistenceRatesAndMissingSinger() {
     CHECK(module.status.load() == ModuleStatus::Rendering);
     CHECK(module.lights[VocalModule::RENDER_LIGHT].getBrightness() > 0.5f);
     waitRendered(module);
+    CHECK(!module.copyCurrentDiagnostics().phonemes.empty());
 
     module.phonemizerName = "Direct Alias";
     module.ppqn.store(12);

@@ -83,6 +83,7 @@ struct VocalModule : rack::engine::Module {
     std::string statusText() const;
     std::string singerDisplayName() const;
     std::string lastError() const;
+    RenderDiagnostics copyCurrentDiagnostics() const;
     bool transportRunningForTest() const noexcept { return transport_.isRunning(); }
 
 private:

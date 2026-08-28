@@ -196,7 +196,7 @@ struct VocalDisplay : TooltipButton {
         nvgText(vg, timelineLeft + 4, dynTop + 9, "DYNAMICS  +12 / 0 / -24 dB", nullptr);
 
         nvgSave(vg); nvgIntersectScissor(vg, timelineLeft, pitchTop, timelineWidth, dynBottom - pitchTop);
-        const auto diagnostics = module->renderSlot->copyDiagnostics();
+        const auto diagnostics = module->copyCurrentDiagnostics();
         // Note bodies are a separate pass so a connected phrase can carry one
         // unbranched performed-pitch path across all of them.
         for (const auto& note : score.notes) {

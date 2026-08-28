@@ -845,7 +845,7 @@ size_t VocalEditor::noteAtTick(int64_t tick) const {
 std::pair<size_t, size_t> VocalEditor::phonemeAt(rack::math::Vec pos) const {
     const size_t noNote = module_->score.notes.size();
     if (!phonemeLane_.contains(pos)) return {noNote, 0};
-    const auto diagnostics = module_->renderSlot->copyDiagnostics();
+    const auto diagnostics = module_->copyCurrentDiagnostics();
     const double ticksPerMs = module_->score.nominalBpm * kTicksPerQuarter / 60000.0;
     const int64_t clickTick = xToTick(pos.x);
     for (size_t noteIndex = module_->score.notes.size(); noteIndex-- > 0;) {
@@ -1637,7 +1637,7 @@ void VocalEditor::draw(const DrawArgs& args) {
         nvgStroke(vg);
     }
 
-    const auto diagnostics = module_->renderSlot->copyDiagnostics();
+    const auto diagnostics = module_->copyCurrentDiagnostics();
     // Paint all note bodies first. The pitch contour needs a
     // separate pass: a transition is one performed path, not one path per
     // note. Drawing per-note contours made the outgoing baseline continue to
@@ -2217,7 +2217,7 @@ bool VocalEditor::startCurvePointDrag(rack::math::Vec pos) {
 
 bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
     if (!phonemeLane_.contains(pos) || selection_.empty()) return false;
-    const auto diagnostics = module_->renderSlot->copyDiagnostics();
+    const auto diagnostics = module_->copyCurrentDiagnostics();
     const auto bodyHit = phonemeAt(pos);
     const double ticksPerMs = module_->score.nominalBpm * kTicksPerQuarter / 60000.0;
     for (const auto noteIndex : selection_) {
@@ -3305,7 +3305,7 @@ std::string VocalEditor::inspectorValue(InspectorField field) const {
         case InspectorField::Alias: {
             if (!note.phonemeOverrides.empty()) return joinPhonemes(note.phonemeOverrides);
             if (note.aliasOverride) return "EXACT: " + *note.aliasOverride;
-            const auto diagnostics = module_->renderSlot->copyDiagnostics();
+            const auto diagnostics = module_->copyCurrentDiagnostics();
             std::vector<const PhonemeEvent*> phones;
             for (const auto& phone : diagnostics.phonemes)
                 if (phone.sourceNoteId == note.id) phones.push_back(&phone);
