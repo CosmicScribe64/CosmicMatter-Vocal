@@ -51,8 +51,8 @@ That script builds both packages, validates the production archive, installs the
 
 | Level | Result | Coverage/evidence |
 |---|---|---|
-| Unit | PASS | Eight groups: voicebank/oto/encoding/prefix/metadata, six phonemizer modes/fallback, score/schema/sections, USTX/UST/MIDI mapping and malformed input, clock/transport/PPQN/phase, cache/service, realtime modulation, and renderer scheduling/replacement. |
-| Official-bank offline integration | PASS | Nine groups: official 721-WAV bank load, non-silent finite deterministic render, duration and internal-gap limits, pitch direction, 60/120 BPM ratio, 44.1/48/96 kHz, arbitrary seek/range, malformed-bank safety, and the English word/phone contribution matrix. |
+| Unit | PASS | Ten groups: voicebank/oto/encoding/prefix/metadata, six phonemizer modes/fallback, score/schema/sections, USTX/UST/MIDI mapping and malformed input, clock/transport/PPQN/phase, cache/service, realtime modulation, renderer scheduling/replacement, editor navigation, and the shared draw/move/group-move/left-resize/right-resize overwrite operation used by the live Rack widget. |
+| Official-bank offline integration | PASS | Eleven groups: official 721-WAV bank load, non-silent finite deterministic render, duration and internal-gap limits, pitch direction, 60/120 BPM ratio, 44.1/48/96 kHz, arbitrary seek/range, malformed-bank safety, and the English word/phone contribution matrix. |
 | Actual Rack ABI harness | PASS | Seven normal groups plus the eight-group stress run, containing the required lifecycle/process/ports/serialization/sample-rate/missing-singer/multi-instance behaviors, editor audition decay, and linked native-file-dialog filter parsing. |
 | Stress/stability | PASS | Three modules for a simulated five minutes, 1,000 resets, 100 create/delete cycles, repeated rerender/cancel/reclamation, malformed data, and worker shutdown. |
 | Docker clean build/test | PASS | Ubuntu 24.04 standalone core and official-bank offline suites; no compiler or .NET SDK was installed on the host for these portable tests. |
@@ -106,6 +106,8 @@ Required evidence present in this directory:
 
 The separate installed-plugin pointer/edit/import journey and all 41 signed-off user stories are recorded in `test-artifacts/user-journey/USER_STORY_REPORT.md`.
 
+The current editor implementation calls `placeEditorDrawnNote()` and `applyEditorNoteGesture()` directly from its Rack pointer handlers. The unit gate exercises those same operations for pencil creation into an occupied span, snapped body movement, rigid multi-note movement, left-edge resize, and right-edge resize. In every case the edited note or selected group wins and collided material is trimmed, rebased, or removed without leaving a polyphonic score. This closes the former gap where only the lower-level collision resolver was tested.
+
 ## Human listening result: PASS
 
 A machine-passing candidate failed the listening check because it sounded high-pitched and was hard to understand, although the listener recognized a Vocaloid-like voice. Its evidence remains under `test-artifacts/e2e-initial-listening-failed/` as a failed run.
@@ -135,7 +137,7 @@ The best 10 ms RMS-envelope alignment had 0.000 seconds lag and correlation 0.74
 - Built-in modes are Japanese Auto CV/VCV, Japanese CVVC, English-to-Japanese, English X-SAMPA, English VCCV, and Direct Alias. Vocal loads compatible third-party UTAU banks, but does not execute third-party OpenUtau renderer or phonemizer plug-ins; unavailable project settings are reported during import.
 - USTX import uses the first tempo and time signature, then reports later changes. Vocal reports renderer-specific expressions without applying them.
 - Native V1 is not intended to null against or exactly imitate WORLDLINE-R.
-- One VOCAL instance is mono and monophonic; overlapping notes are rejected/flagged.
+- One VOCAL instance is mono and monophonic. Editor draw, move, paste, and resize gestures resolve collisions deterministically: the edited note or rigid selection wins, while collided unselected material is trimmed/rebased or removed.
 - SINGER PLATE external-bank verification in the automated Rack patch loads a genuine external selection from persisted state; the screenshot proves the updated image/name, but the automation does not synthesize a mouse click through Rack's folder dialog.
 - The provided GUI E2E orchestration script targets the designated macOS ARM64 Rack 2.6.6 reference platform. Core/offline tests are portable through Docker and CI describes other targets where matching Rack SDKs are available.
 - Published builds are identified by both the immutable source commit and the package SHA-256 recorded outside the archive.

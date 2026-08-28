@@ -979,8 +979,7 @@ void VocalEditor::updateDrawNote() {
     note.durationTick = endTick - startTick;
     note.midiNote = yToMidi(drawCurrent_.y);
     note.lyric = isJapanesePhonemizer(module_->phonemizerName) ? "あ" : "a";
-    module_->score.notes.push_back(std::move(note));
-    resolveMonophonicOverwrite(module_->score, {drawNoteId_});
+    placeEditorDrawnNote(module_->score, std::move(note));
     const auto found = std::find_if(module_->score.notes.begin(), module_->score.notes.end(),
         [&](const Note& candidate) { return candidate.id == drawNoteId_; });
     if (found != module_->score.notes.end())
@@ -2616,11 +2615,6 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
     if (!dragging_ || selection_.empty()) return;
     dragPixels_ = dragPixels_.plus(e.mouseDelta);
     const int64_t rawDelta = static_cast<int64_t>(std::llround(dragPixels_.x / module_->editorZoomX));
-    const int64_t grid = std::max<int64_t>(1, module_->editorSnapTick);
-    const int64_t minimumDuration = module_->editorSnapEnabled ? grid : 1;
-    int64_t deltaTick = module_->editorSnapEnabled
-        ? static_cast<int64_t>(std::llround(static_cast<double>(rawDelta) / grid)) * grid
-        : rawDelta;
     int deltaPitch = static_cast<int>(std::lround(-dragPixels_.y / module_->editorZoomY));
     module_->score = scoreFromJson(dragBefore_);
     const auto isDragged = [&](const Note& note) {
@@ -2628,42 +2622,16 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
                dragSelectionIds_.end();
     };
 
-    // A body drag is a rigid translation: clamp the delta once for the
-    // entire selection rather than clamping each note independently.
-    if (!resizing_ && !resizingStart_) {
-        int64_t firstStart = std::numeric_limits<int64_t>::max();
-        int lowestPitch = 127;
-        int highestPitch = 0;
-        for (const auto& note : module_->score.notes) {
-            if (!isDragged(note)) continue;
-            firstStart = std::min(firstStart, note.startTick);
-            lowestPitch = std::min(lowestPitch, note.midiNote);
-            highestPitch = std::max(highestPitch, note.midiNote);
-        }
-        if (firstStart != std::numeric_limits<int64_t>::max())
-            deltaTick = std::max(deltaTick, -firstStart);
-        deltaPitch = std::clamp(deltaPitch, -lowestPitch, 127 - highestPitch);
-    }
-    for (auto& note : module_->score.notes) {
-        if (!isDragged(note)) continue;
-        if (resizingStart_) {
-            if (note.id != dragPrimaryNoteId_) continue;
-            const int64_t originalEnd = note.endTick();
-            note.startTick = std::clamp(snapTick(note.startTick + deltaTick), int64_t{0}, originalEnd - minimumDuration);
-            note.durationTick = originalEnd - note.startTick;
-        } else if (resizing_) {
-            if (note.id != dragPrimaryNoteId_) continue;
-            note.durationTick = std::max<int64_t>(minimumDuration,
-                module_->editorSnapEnabled ? snapTick(note.durationTick + deltaTick)
-                                           : note.durationTick + deltaTick);
-        } else {
-            note.startTick += deltaTick;
-            note.midiNote = std::clamp(note.midiNote + deltaPitch, 0, 127);
-        }
-    }
-    const std::vector<std::string> overwriteIds = (resizing_ || resizingStart_)
-        ? std::vector<std::string>{dragPrimaryNoteId_} : dragSelectionIds_;
-    resolveMonophonicOverwrite(module_->score, overwriteIds);
+    EditorNoteGesture gesture;
+    gesture.kind = resizingStart_ ? EditorNoteGestureKind::ResizeStart
+        : resizing_ ? EditorNoteGestureKind::ResizeEnd : EditorNoteGestureKind::Move;
+    gesture.noteIds = dragSelectionIds_;
+    gesture.primaryNoteId = dragPrimaryNoteId_;
+    gesture.rawDeltaTick = rawDelta;
+    gesture.deltaMidi = deltaPitch;
+    gesture.snapEnabled = module_->editorSnapEnabled;
+    gesture.snapTick = module_->editorSnapTick;
+    applyEditorNoteGesture(module_->score, gesture);
     selection_.clear();
     for (size_t index = 0; index < module_->score.notes.size(); ++index)
         if (isDragged(module_->score.notes[index])) selection_.insert(index);

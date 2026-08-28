@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <unordered_set>
@@ -210,6 +211,76 @@ void resolveMonophonicOverwrite(VocalScore& score,
     }
     score.notes = std::move(kept);
     score.normalize();
+}
+
+void placeEditorDrawnNote(VocalScore& score, Note note) {
+    note.startTick = std::max<int64_t>(0, note.startTick);
+    note.durationTick = std::max<int64_t>(1, note.durationTick);
+    note.midiNote = std::clamp(note.midiNote, 0, 127);
+    if (note.id.empty()) note.id = makeUuid();
+    const std::string placedId = note.id;
+    score.notes.erase(std::remove_if(score.notes.begin(), score.notes.end(), [&](const Note& existing) {
+        return existing.id == placedId;
+    }), score.notes.end());
+    score.notes.push_back(std::move(note));
+    resolveMonophonicOverwrite(score, {placedId});
+}
+
+void applyEditorNoteGesture(VocalScore& score, const EditorNoteGesture& gesture) {
+    if (gesture.noteIds.empty()) return;
+    const std::unordered_set<std::string> selected(gesture.noteIds.begin(), gesture.noteIds.end());
+    const int64_t grid = std::max<int64_t>(1, gesture.snapTick);
+    const int64_t deltaTick = gesture.snapEnabled
+        ? static_cast<int64_t>(std::llround(static_cast<double>(gesture.rawDeltaTick) / grid)) * grid
+        : gesture.rawDeltaTick;
+    const int64_t minimumDuration = gesture.snapEnabled ? grid : 1;
+    const auto snapAbsolute = [&](int64_t tick) {
+        if (!gesture.snapEnabled) return std::max<int64_t>(0, tick);
+        return std::max<int64_t>(0,
+            static_cast<int64_t>(std::llround(static_cast<double>(tick) / grid)) * grid);
+    };
+
+    if (gesture.kind == EditorNoteGestureKind::Move) {
+        int64_t firstStart = std::numeric_limits<int64_t>::max();
+        int lowestPitch = 127;
+        int highestPitch = 0;
+        for (const auto& note : score.notes) {
+            if (!selected.count(note.id)) continue;
+            firstStart = std::min(firstStart, note.startTick);
+            lowestPitch = std::min(lowestPitch, note.midiNote);
+            highestPitch = std::max(highestPitch, note.midiNote);
+        }
+        if (firstStart == std::numeric_limits<int64_t>::max()) return;
+        const int64_t clampedTick = std::max(deltaTick, -firstStart);
+        const int clampedPitch = std::clamp(gesture.deltaMidi, -lowestPitch, 127 - highestPitch);
+        for (auto& note : score.notes) {
+            if (!selected.count(note.id)) continue;
+            note.startTick += clampedTick;
+            note.midiNote += clampedPitch;
+        }
+        resolveMonophonicOverwrite(score, gesture.noteIds);
+        return;
+    }
+
+    auto edited = std::find_if(score.notes.begin(), score.notes.end(), [&](const Note& note) {
+        return note.id == gesture.primaryNoteId && selected.count(note.id);
+    });
+    if (edited == score.notes.end()) return;
+    if (gesture.kind == EditorNoteGestureKind::ResizeStart) {
+        const int64_t originalEnd = edited->endTick();
+        // Imported/free-timed notes can be shorter than the active snap grid.
+        // Preserve at least one tick in that case instead of constructing an
+        // invalid clamp range whose upper bound precedes the note start.
+        const int64_t effectiveMinimum = std::min(
+            minimumDuration, std::max<int64_t>(1, edited->durationTick));
+        edited->startTick = std::clamp(snapAbsolute(edited->startTick + deltaTick),
+                                       int64_t{0}, originalEnd - effectiveMinimum);
+        edited->durationTick = originalEnd - edited->startTick;
+    } else {
+        edited->durationTick = std::max<int64_t>(minimumDuration,
+            snapAbsolute(edited->durationTick + deltaTick));
+    }
+    resolveMonophonicOverwrite(score, {edited->id});
 }
 
 std::string makeUuid() {

@@ -102,6 +102,24 @@ void resolveMonophonicOverwrite(VocalScore& score,
                                 const std::vector<std::string>& priorityNoteIds,
                                 int64_t minimumDurationTick = 1);
 
+// The score editor and its automated interaction tests share this exact
+// gesture operation. Keeping the translation/resize and overwrite rules here
+// prevents the Rack mouse handler from drifting away from the tested model.
+enum class EditorNoteGestureKind { Move, ResizeStart, ResizeEnd };
+
+struct EditorNoteGesture {
+    EditorNoteGestureKind kind = EditorNoteGestureKind::Move;
+    std::vector<std::string> noteIds;
+    std::string primaryNoteId;
+    int64_t rawDeltaTick = 0;
+    int deltaMidi = 0;
+    bool snapEnabled = true;
+    int64_t snapTick = 120;
+};
+
+void placeEditorDrawnNote(VocalScore& score, Note note);
+void applyEditorNoteGesture(VocalScore& score, const EditorNoteGesture& gesture);
+
 std::string makeUuid();
 VocalScore makeDefaultScore();
 VocalScore makeJapaneseFirstSoundScore();

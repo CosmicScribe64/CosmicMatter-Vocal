@@ -241,6 +241,76 @@ static void testMonophonicOverwrite() {
     CHECK(untouched->pitchCents.points.size() == 2);
     CHECK(untouched->pitchCents.points[0].tickOffset == -60);
     CHECK(untouched->pitchCents.points[1].tickOffset == 540);
+
+    // These are the exact shared operations called by the Rack mouse widget,
+    // not a second test-only approximation of its gesture math.
+    VocalScore drawn;
+    drawn.notes = {makeNote("old", 0, 480)};
+    placeEditorDrawnNote(drawn, makeNote("drawn", 240, 480));
+    CHECK(drawn.validate().empty());
+    CHECK(drawn.notes.size() == 2);
+    CHECK(drawn.notes[0].id == "old");
+    CHECK(drawn.notes[0].durationTick == 240);
+    CHECK(drawn.notes[1].id == "drawn");
+
+    VocalScore moved;
+    moved.notes = {makeNote("old", 0, 480), makeNote("moving", 480, 240)};
+    applyEditorNoteGesture(moved, {
+        EditorNoteGestureKind::Move, {"moving"}, "moving", -190, 2, true, 120,
+    });
+    CHECK(moved.validate().empty());
+    CHECK(moved.notes[0].id == "old");
+    CHECK(moved.notes[0].durationTick == 240);
+    CHECK(moved.notes[1].id == "moving");
+    CHECK(moved.notes[1].startTick == 240);
+    CHECK(moved.notes[1].midiNote == 62);
+
+    VocalScore resizedEnd;
+    resizedEnd.notes = {makeNote("edited", 0, 240), makeNote("old", 360, 360)};
+    applyEditorNoteGesture(resizedEnd, {
+        EditorNoteGestureKind::ResizeEnd, {"edited"}, "edited", 250, 0, true, 120,
+    });
+    CHECK(resizedEnd.validate().empty());
+    CHECK(resizedEnd.notes[0].durationTick == 480);
+    CHECK(resizedEnd.notes[1].startTick == 480);
+    CHECK(resizedEnd.notes[1].durationTick == 240);
+
+    VocalScore resizedStart;
+    resizedStart.notes = {makeNote("old", 0, 360), makeNote("edited", 480, 240)};
+    applyEditorNoteGesture(resizedStart, {
+        EditorNoteGestureKind::ResizeStart, {"edited"}, "edited", -250, 0, true, 120,
+    });
+    CHECK(resizedStart.validate().empty());
+    CHECK(resizedStart.notes[0].id == "old");
+    CHECK(resizedStart.notes[0].durationTick == 240);
+    CHECK(resizedStart.notes[1].id == "edited");
+    CHECK(resizedStart.notes[1].startTick == 240);
+    CHECK(resizedStart.notes[1].durationTick == 480);
+
+    VocalScore shortImported;
+    shortImported.notes = {makeNote("short", 480, 60)};
+    applyEditorNoteGesture(shortImported, {
+        EditorNoteGestureKind::ResizeStart, {"short"}, "short", 240, 0, true, 120,
+    });
+    CHECK(shortImported.validate().empty());
+    CHECK(shortImported.notes[0].startTick == 480);
+    CHECK(shortImported.notes[0].durationTick == 60);
+
+    VocalScore movedGroup;
+    movedGroup.notes = {
+        makeNote("obstacle", 0, 360), makeNote("left", 480, 120), makeNote("right", 600, 120),
+    };
+    applyEditorNoteGesture(movedGroup, {
+        EditorNoteGestureKind::Move, {"left", "right"}, "left", -240, -1, true, 120,
+    });
+    CHECK(movedGroup.validate().empty());
+    CHECK(movedGroup.notes.size() == 3);
+    CHECK(movedGroup.notes[0].id == "obstacle");
+    CHECK(movedGroup.notes[0].durationTick == 240);
+    CHECK(movedGroup.notes[1].id == "left");
+    CHECK(movedGroup.notes[1].startTick == 240);
+    CHECK(movedGroup.notes[2].id == "right");
+    CHECK(movedGroup.notes[2].startTick == 360);
 }
 
 static void testVoicebankAndPhonemizers() {
