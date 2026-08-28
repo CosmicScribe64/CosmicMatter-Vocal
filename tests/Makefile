@@ -25,7 +25,12 @@ RACK_CXXFLAGS += -D_USE_MATH_DEFINES -Wno-free-nonheap-object
 LDFLAGS += -liconv
 RACK_LDFLAGS += -liconv
 RACK_HARNESS_BIN := $(BUILD)/rack-harness.exe
-RACK_RUN_ENV := PATH=$(RACK_RUNTIME_DIR):$$PATH
+# Keep the active MinGW toolchain first so the harness uses the same
+# libstdc++/libgcc/libiconv that it was just compiled against.  The official
+# Rack directory only needs to add libRack.dll; putting it first can make a
+# newer CI compiler load Rack's older bundled C++ runtime and Windows exits
+# before main() with status 127.
+RACK_RUN_ENV := PATH=$$PATH:$(RACK_RUNTIME_DIR)
 else ifeq ($(shell uname -s),Darwin)
 RACK_CXXFLAGS += -mmacosx-version-min=10.15
 RACK_RUN_ENV := DYLD_LIBRARY_PATH=$(RACK_DIR)
