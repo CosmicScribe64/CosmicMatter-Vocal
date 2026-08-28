@@ -26,3 +26,10 @@ test-artifacts/**
 !test-artifacts/roundtrip/TEST_REPORT.md
 *.d
 *.o
+
+# Local product planning and research; keep these out of the public plugin
+# source package while retaining the working copies for continued development.
+/spec.md
+/USER_STORY_MATRIX.md
+/IMPLEMENTATION_STATUS.md
+/UX_RESEARCH.md

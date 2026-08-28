@@ -8,7 +8,13 @@ analysis_image=${VOCALRACK_ANALYSIS_IMAGE:-vocalrack-audio-analysis:py3.12}
 
 "$repo_dir/scripts/ensure_openutau_reference.sh"
 mkdir -p "$output_dir"
+make -f "$repo_dir/tests/Makefile" -C "$repo_dir" build-tests/vocalrack-render
 python3 "$repo_dir/scripts/generate_openutau_english_regression.py" "$output_dir"
+"$repo_dir/build-tests/vocalrack-render" \
+  --score "$repo_dir/tests/fixtures/english_first_sound.json" \
+  --phonemizer "English to Japanese" --export-singer-id adachi-rei \
+  --export-ustx "$output_dir/template/corpus.ustx" \
+  > "$output_dir/template/export.log" 2>&1
 
 docker run --rm \
   -v "$repo_dir:/workspace:ro" \
@@ -28,14 +34,17 @@ docker run --rm \
       *) native=linux-x64 ;;
     esac
     cp "/tmp/workspace/reference/OpenUtau/runtimes/$native/native/libworldline.so" /tmp/ou-publish/
-    for suite in adachi xsampa vccv; do
+    for suite in template adachi xsampa vccv; do
       XDG_DATA_HOME=/tmp/ou-data XDG_CACHE_HOME=/tmp/ou-cache LD_LIBRARY_PATH=/tmp/ou-publish \
         dotnet /tmp/ou-publish/OpenUtauCompare.dll "/out/$suite/corpus.ustx" \
         "/out/$suite/openutau-classic.wav" CLASSIC > "/out/$suite/openutau-classic.log" 2>&1
     done
   '
 
-make -f "$repo_dir/tests/Makefile" -C "$repo_dir" build-tests/vocalrack-render
+"$repo_dir/build-tests/vocalrack-render" \
+  --phonemizer "English to Japanese" --singer "$repo_dir/res/singers/adachi-rei" \
+  --score "$repo_dir/tests/fixtures/english_first_sound.json" --sample-rate 44100 \
+  --out "$output_dir/template/vocalrack.wav" > "$output_dir/template/vocalrack.log" 2>&1
 "$repo_dir/build-tests/vocalrack-render" \
   --phonemizer "English to Japanese" --singer "$repo_dir/res/singers/adachi-rei" \
   --ustx "$output_dir/adachi/corpus.ustx" --sample-rate 44100 \
@@ -50,8 +59,9 @@ make -f "$repo_dir/tests/Makefile" -C "$repo_dir" build-tests/vocalrack-render
   --out "$output_dir/vccv/vocalrack.wav" > "$output_dir/vccv/vocalrack.log" 2>&1
 
 docker build -q -t "$analysis_image" "$repo_dir/tools/audio-analysis" >/dev/null
-for suite in adachi xsampa vccv; do
+for suite in template adachi xsampa vccv; do
   case "$suite" in
+    template) label="Exact shipped Wake up, little machine template"; singer_id="adachi-rei" ;;
     adachi) label="Adachi Rei English to Japanese"; singer_id="adachi-rei" ;;
     xsampa) label="English X-SAMPA"; singer_id="vocalrack-en-xsampa" ;;
     vccv) label="English VCCV"; singer_id="vocalrack-en-vccv" ;;
@@ -73,6 +83,7 @@ for suite in adachi xsampa vccv; do
 done
 
 python3 "$repo_dir/scripts/write_openutau_english_report.py" \
+  "$output_dir/template/regression-report.json" \
   "$output_dir/adachi/regression-report.json" \
   "$output_dir/xsampa/regression-report.json" \
   "$output_dir/vccv/regression-report.json" \

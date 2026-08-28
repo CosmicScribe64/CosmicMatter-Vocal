@@ -595,10 +595,6 @@ def main() -> None:
         "p90SpectralFlatnessDifference": texture_summary["absoluteSpectralFlatnessDifferenceDb"]["p90"] <= thresholds["maximumP90SpectralFlatnessDifferenceDb"],
         "p90WarmthDifference": texture_summary["absoluteWarmthRatioDifference"]["p90"] <= thresholds["maximumP90WarmthRatioDifference"],
         "p90HighBandDifference": texture_summary["absoluteHighBandRatioDifference"]["p90"] <= thresholds["maximumP90HighBandRatioDifference"],
-        "continuationBestLagCorrelation": continuation_summary["medianBestLagCorrelation"] >= thresholds["minimumContinuationMedianBestLagCorrelation"],
-        "continuationAbsoluteLag": continuation_summary["medianAbsoluteBestLagMs"] <= thresholds["maximumContinuationMedianAbsoluteLagMs"],
-        "continuationPitchDifference": continuation_summary["medianAbsolutePitchDifferenceCents"] <= thresholds["maximumContinuationMedianPitchDifferenceCents"],
-        "continuationMelEnvelopeCorrelation": continuation_summary["medianMelEnvelopeCorrelation"] >= thresholds["minimumContinuationMedianMelEnvelopeCorrelation"],
         "phoneSequenceOpenUtauRecall": phone_sequence["openUtauRecall"] >=
             thresholds.get("minimumPhoneSequenceOpenUtauRecall", 0.0),
         "phoneSequenceVocalRackPrecision": phone_sequence["vocalRackPrecision"] >=
@@ -608,6 +604,23 @@ def main() -> None:
             phone_sequence["alignedAbsoluteTimingMs"]["p90"] <=
             thresholds.get("maximumPhoneSequenceP90AbsoluteTimingMs", math.inf)),
     }
+    expected_continuations = int(
+        manifest.get("coverage", {}).get("continuationBoundaries", 0))
+    if expected_continuations:
+        checks["continuationBoundaryCoverage"] = (
+            continuation_summary["boundaries"] == expected_continuations)
+        checks["continuationBestLagCorrelation"] = (
+            continuation_summary["medianBestLagCorrelation"] >=
+            thresholds["minimumContinuationMedianBestLagCorrelation"])
+        checks["continuationAbsoluteLag"] = (
+            continuation_summary["medianAbsoluteBestLagMs"] <=
+            thresholds["maximumContinuationMedianAbsoluteLagMs"])
+        checks["continuationPitchDifference"] = (
+            continuation_summary["medianAbsolutePitchDifferenceCents"] <=
+            thresholds["maximumContinuationMedianPitchDifferenceCents"])
+        checks["continuationMelEnvelopeCorrelation"] = (
+            continuation_summary["medianMelEnvelopeCorrelation"] >=
+            thresholds["minimumContinuationMedianMelEnvelopeCorrelation"])
     expected_internal = int(manifest.get("coverage", {}).get("internalPhoneBoundaries", 0))
     if expected_internal:
         checks["internalPhoneBoundaryCoverage"] = internal_summary["boundaries"] == expected_internal

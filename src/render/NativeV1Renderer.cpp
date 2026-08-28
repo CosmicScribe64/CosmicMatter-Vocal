@@ -181,10 +181,28 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
             noteIndex = chainEndIndex;
             continue;
         }
+        const auto sourceNoteFor = [&](const PhonemeEvent& event) -> const Note* {
+            const auto found = std::find_if(
+                score.notes.begin() + static_cast<std::ptrdiff_t>(noteIndex),
+                score.notes.begin() + static_cast<std::ptrdiff_t>(chainEndIndex + 1),
+                [&](const Note& candidate) { return candidate.id == event.sourceNoteId; });
+            return found == score.notes.begin() + static_cast<std::ptrdiff_t>(chainEndIndex + 1)
+                ? &note : &*found;
+        };
         for (size_t phoneIndex = 0; phoneIndex < phones.size(); ++phoneIndex) {
         auto phone = phones[phoneIndex];
+        const Note* eventNote = sourceNoteFor(phone);
+        const bool firstPhoneForNote = phoneIndex == 0 ||
+            phones[phoneIndex - 1].sourceNoteId != phone.sourceNoteId;
+        const bool lastPhoneForNote = phoneIndex + 1 == phones.size() ||
+            phones[phoneIndex + 1].sourceNoteId != phone.sourceNoteId;
+        const int64_t timingOffset = eventNote->phonemeTiming.positionOffsetTick.value_or(0);
+        const int64_t nextTimingOffset = phoneIndex + 1 < phones.size()
+            ? sourceNoteFor(phones[phoneIndex + 1])->phonemeTiming.positionOffsetTick.value_or(0)
+            : 0;
         const int64_t phoneEndTick = phoneIndex + 1 < phones.size()
-            ? std::max<int64_t>(phone.relativeTick + 1, phones[phoneIndex + 1].relativeTick)
+            ? std::max<int64_t>(phone.relativeTick + timingOffset + 1,
+                phones[phoneIndex + 1].relativeTick + nextTimingOffset)
             : logicalEndTick;
         if (!phone.oto) {
             out.diagnostics.phonemes.push_back(phone);
@@ -253,13 +271,13 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
         // lands at the boundary instead of being swallowed by an attack fade.
         // The first note cannot begin before tick zero, so it starts at zero
         // and reaches its vowel slightly after the transport starts.
-        const bool firstPhone = phoneIndex == 0;
         const double preutterMs = std::clamp(phone.oto->preutterMs +
-            (firstPhone ? note.phonemeTiming.preutteranceDeltaMs.value_or(0.f) : 0.f), 0.0, 500.0);
+            (firstPhoneForNote ? eventNote->phonemeTiming.preutteranceDeltaMs.value_or(0.f) : 0.f),
+            0.0, 500.0);
         const double overlapMs = std::clamp(phone.oto->overlapMs +
-            (firstPhone ? note.phonemeTiming.overlapDeltaMs.value_or(0.f) : 0.f), -500.0, preutterMs);
-        const int64_t phonemePositionTick = phone.relativeTick +
-            (firstPhone ? note.phonemeTiming.positionOffsetTick.value_or(0) : 0);
+            (firstPhoneForNote ? eventNote->phonemeTiming.overlapDeltaMs.value_or(0.f) : 0.f),
+            -500.0, preutterMs);
+        const int64_t phonemePositionTick = phone.relativeTick + timingOffset;
         const int64_t preutterTick = static_cast<int64_t>(std::llround(
             preutterMs * out.bpm * kTicksPerQuarter / 60000.0));
         // Keep the true (possibly negative) preutterance origin. When the
@@ -292,7 +310,8 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
             ? std::clamp(overlapMs, 0.0, preutterMs)
             : 5.0;
         const double adjustedAttackMs = std::clamp(attackMs +
-            (firstPhone ? note.phonemeTiming.attackTimeDeltaMs.value_or(0.f) : 0.f), 0.0, 500.0);
+            (firstPhoneForNote ? eventNote->phonemeTiming.attackTimeDeltaMs.value_or(0.f) : 0.f),
+            0.0, 500.0);
         const size_t attackFrames = std::max<size_t>(16, static_cast<size_t>(
             adjustedAttackMs * out.sampleRate / 1000.0));
         size_t envelopeEndFrames = eventFrames;
@@ -302,7 +321,8 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
         bool handoffIsFirstPhone = false;
         if (phoneIndex + 1 < phones.size()) {
             handoffPhone = phones[phoneIndex + 1];
-            handoffNote = &note;
+            handoffNote = sourceNoteFor(handoffPhone);
+            handoffIsFirstPhone = handoffPhone.sourceNoteId != phone.sourceNoteId;
         } else if (next) {
             const Note* following = chainEndIndex + 2 < score.notes.size() ? &score.notes[chainEndIndex + 2] : nullptr;
             auto followingPhones = phonemizer->processAll(*next, &chainLast, following, singer);
@@ -327,16 +347,23 @@ RenderedAudio NativeV1Renderer::render(const VocalScore& score, const Voicebank&
                 const int64_t nextOverlapTick = static_cast<int64_t>(std::llround(
                     nextOverlapMs * out.bpm * kTicksPerQuarter / 60000.0));
                 const int64_t nextPositionTick = handoffPhone.relativeTick +
-                    (handoffIsFirstPhone ? handoffNote->phonemeTiming.positionOffsetTick.value_or(0) : 0);
+                    handoffNote->phonemeTiming.positionOffsetTick.value_or(0);
                 const int64_t handoffTick = nextPositionTick - nextPreutterTick + nextOverlapTick;
                 const double handoffSeconds = tickToSeconds(handoffTick - eventStartTick, out.bpm);
                 envelopeEndFrames = static_cast<size_t>(std::clamp<double>(
                     std::llround(handoffSeconds * out.sampleRate), 0.0, static_cast<double>(eventFrames)));
                 const double releaseMs = std::clamp((nextOverlapMs > 0.0 ? nextOverlapMs : 35.0) +
-                    (phoneIndex + 1 == phones.size()
-                        ? note.phonemeTiming.releaseTimeDeltaMs.value_or(0.f) : 0.f), 0.0, 500.0);
+                    (lastPhoneForNote
+                        ? eventNote->phonemeTiming.releaseTimeDeltaMs.value_or(0.f) : 0.f),
+                    0.0, 500.0);
                 releaseFrames = std::max<size_t>(16, static_cast<size_t>(
                     releaseMs * out.sampleRate / 1000.0));
+        } else if (lastPhoneForNote) {
+            const double releaseMs = std::clamp(
+                10.0 + eventNote->phonemeTiming.releaseTimeDeltaMs.value_or(0.f),
+                0.0, 500.0);
+            releaseFrames = std::max<size_t>(16, static_cast<size_t>(
+                releaseMs * out.sampleRate / 1000.0));
         }
 
         const auto notePosition = [&](size_t eventFrame) {

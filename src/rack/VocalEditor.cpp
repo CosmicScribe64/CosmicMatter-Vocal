@@ -1,4 +1,5 @@
 #include "VocalEditor.hpp"
+#include "EditorNavigation.hpp"
 
 #include "core/PitchModel.hpp"
 #include "import/UstxImporter.hpp"
@@ -209,6 +210,12 @@ int64_t ticksPerBeat(const VocalScore& score) {
     return std::max<int64_t>(1, kTicksPerQuarter * 4 / score.beatUnit);
 }
 
+int64_t timelineTailTicks(const VocalScore& score) {
+    // Leave enough blank arrangement space to continue writing a full song
+    // without repeatedly extending the score just to pan the viewport.
+    return editorTimelineTailTicks(score.beatsPerBar, score.beatUnit);
+}
+
 std::string formatMusicalPosition(const VocalScore& score, int64_t tick) {
     tick = std::max<int64_t>(0, tick);
     const int64_t beatTicks = ticksPerBeat(score);
@@ -286,6 +293,7 @@ const char* actionLabel(int action) {
         case 31: return "SONG / SECTION";
         case 32: return "FILE";
         case 33: return "EDIT";
+        case 34: return "SCORE";
         case 35: return "RESTORE VOICE SHAPING";
         case 36: return "FOLLOW";
         case 37: return "VIEW";
@@ -295,13 +303,14 @@ const char* actionLabel(int action) {
         case 41: return "DRAW NOTE";
         case 42: return "ERASE NOTE";
         case 43: return "SLICE NOTE";
+        case 48: return "SECTION";
         default: return "";
     }
 }
 
 const char* actionHelp(int action) {
     switch (action) {
-        case 0: return "Replace the score with the six-note Adachi Rei first-sound phrase";
+        case 0: return "Replace the score with the four-word Wake up, little machine phrase";
         case 1: return "Remove every note and section; Undo restores the score";
         case 2: return "Import one vocal track from OpenUtau USTX, UTAU UST, or MIDI";
         case 3: return "Choose bundled Adachi Rei or validate an external UTAU voicebank";
@@ -335,6 +344,7 @@ const char* actionHelp(int action) {
         case 31: return "Use the whole song, or the selected section's editable start and end bounds";
         case 32: return "Create a score or import UTAU, OpenUtau, or MIDI files";
         case 33: return "Undo, redo, copy, delete, create sections, or restore selected notes";
+        case 34: return "Singer, phonemizer, tempo, location, section, and lyric-flow settings";
         case 35: return "Clear selected notes' alias, pitch, dynamics, vibrato, and phoneme timing; preserve lyrics and notes";
         case 36: return "Keep the moving playhead visible; manual timeline navigation turns this off";
         case 37: return "Fit the song, section, or selection and control playhead following";
@@ -344,6 +354,7 @@ const char* actionHelp(int action) {
         case 41: return "Draw a note into empty monophonic time (D)";
         case 42: return "Delete a clicked note; Undo restores it (E)";
         case 43: return "Split a clicked note at the snap point with a vowel-continuation second half (S)";
+        case 48: return "Create, edit, rename, and delete playable score sections";
         default: return "";
     }
 }
@@ -634,14 +645,12 @@ void VocalEditor::layout() {
     const float contentTop = toolbar_.pos.y + toolbar_.size.y;
     const float contentBottom = window_.pos.y + window_.size.y - footerHeight;
     const float laneContentBottom = contentBottom - scrollBarHeight;
-    const float sidebarWidth = std::clamp(window_.size.x * 0.17f, 190.f, 220.f);
     const float inspectorWidth = std::clamp(window_.size.x * 0.21f, 240.f, 280.f);
-    sidebar_ = {{window_.pos.x, contentTop}, {sidebarWidth, contentBottom - contentTop}};
     inspector_ = {{window_.pos.x + window_.size.x - inspectorWidth, contentTop},
                   {inspectorWidth, contentBottom - contentTop}};
 
     const float labelWidth = 74.f;
-    const float editorLeft = sidebar_.pos.x + sidebar_.size.x;
+    const float editorLeft = window_.pos.x;
     const float mainLeft = editorLeft + labelWidth;
     const float mainWidth = inspector_.pos.x - mainLeft;
     const float rulerHeight = 25.f;
@@ -664,7 +673,6 @@ void VocalEditor::layout() {
     dynamicsModeToggle_ = {{keyboard_.pos.x + 5.f, dynamicsLane_.pos.y + 4.f}, {64.f, 21.f}};
 
     actionHits_.clear();
-    sidebarHeadings_.clear();
     const float headerY = window_.pos.y + headerHeight * 0.5f;
     actionHits_.push_back({22, {{window_.pos.x + window_.size.x - 82.f, headerY - 14.f}, {66.f, 28.f}}});
 
@@ -678,6 +686,9 @@ void VocalEditor::layout() {
     addToolbar(32, 48.f);
     addToolbar(33, 48.f);
     addToolbar(37, 48.f);
+    addToolbar(34, 54.f);
+    addToolbar(6, 82.f);
+    addToolbar(48, 68.f);
     tx += 8.f;
     addToolbar(40, 34.f);
     addToolbar(41, 34.f);
@@ -690,35 +701,6 @@ void VocalEditor::layout() {
     addToolbar(29, 48.f);
     addToolbar(30, 44.f);
     addToolbar(31, 96.f);
-
-    const float sx = sidebar_.pos.x + 12.f;
-    const float sw = sidebar_.size.x - 24.f;
-    float sy = sidebar_.pos.y + 20.f;
-    auto heading = [&](const char* name) {
-        sidebarHeadings_.push_back({name, sy});
-        sy += 13.f;
-    };
-    auto row = [&](std::initializer_list<int> actions) {
-        const float gap = 5.f;
-        const float width = (sw - gap * (actions.size() - 1)) / actions.size();
-        float x = sx;
-        for (int action : actions) {
-            actionHits_.push_back({action, {{x, sy}, {width, 25.f}}});
-            x += width + gap;
-        }
-        sy += 31.f;
-    };
-    heading("VOICE & TIMING");
-    row({3, 4});
-    row({5, 6});
-    row({7});
-    sy += 5.f;
-    heading("SECTIONS");
-    row({14});
-    row({15, 16, 17});
-    sy += 5.f;
-    heading("LYRIC FLOW");
-    row({23});
 
     const float ix = inspector_.pos.x + 12.f;
     const float iw = inspector_.size.x - 24.f;
@@ -794,7 +776,7 @@ void VocalEditor::step() {
         if (playhead < leftSafe || playhead > rightSafe) {
             const float minimumScroll = -static_cast<float>(kTicksPerQuarter);
             const float maximumScroll = std::max(minimumScroll,
-                static_cast<float>(module_->score.endTick() + kTicksPerQuarter) - visibleTicks);
+                static_cast<float>(module_->score.endTick() + timelineTailTicks(module_->score)) - visibleTicks);
             module_->editorScrollX = std::clamp(playhead - visibleTicks * 0.22f,
                                                  minimumScroll, maximumScroll);
         }
@@ -850,6 +832,43 @@ size_t VocalEditor::noteAtTick(int64_t tick) const {
     return module_->score.notes.size();
 }
 
+std::pair<size_t, size_t> VocalEditor::phonemeAt(rack::math::Vec pos) const {
+    const size_t noNote = module_->score.notes.size();
+    if (!phonemeLane_.contains(pos)) return {noNote, 0};
+    const auto diagnostics = module_->renderSlot->copyDiagnostics();
+    const double ticksPerMs = module_->score.nominalBpm * kTicksPerQuarter / 60000.0;
+    const int64_t clickTick = xToTick(pos.x);
+    for (size_t noteIndex = module_->score.notes.size(); noteIndex-- > 0;) {
+        const auto& note = module_->score.notes[noteIndex];
+        std::vector<const PhonemeEvent*> phones;
+        for (const auto& phone : diagnostics.phonemes)
+            if (phone.sourceNoteId == note.id) phones.push_back(&phone);
+        std::stable_sort(phones.begin(), phones.end(), [](const auto* left, const auto* right) {
+            return left->relativeTick < right->relativeTick;
+        });
+        const int64_t offset = note.phonemeTiming.positionOffsetTick.value_or(0);
+        if (phones.empty()) {
+            if (clickTick >= note.startTick + offset && clickTick < note.endTick())
+                return {noteIndex, 0};
+            continue;
+        }
+        for (size_t phoneIndex = phones.size(); phoneIndex-- > 0;) {
+            const auto& phone = *phones[phoneIndex];
+            const int64_t position = phone.relativeTick + offset;
+            const int64_t end = phoneIndex + 1 < phones.size()
+                ? std::max<int64_t>(position + 1, phones[phoneIndex + 1]->relativeTick + offset)
+                : note.endTick();
+            const int64_t preutter = phone.oto ? static_cast<int64_t>(std::llround(
+                std::clamp(static_cast<float>(phone.oto->preutterMs) +
+                    (phoneIndex == 0 ? note.phonemeTiming.preutteranceDeltaMs.value_or(0.f) : 0.f),
+                    0.f, 500.f) * ticksPerMs)) : 0;
+            if (clickTick >= position - preutter && clickTick < std::max<int64_t>(position + 1, end))
+                return {noteIndex, phoneIndex};
+        }
+    }
+    return {noNote, 0};
+}
+
 void VocalEditor::copySelectedNotes() {
     clipboard_.clear();
     for (const auto index : selection_)
@@ -883,7 +902,7 @@ void VocalEditor::pasteClipboardAtTick(int64_t tick) {
         insertedIds.push_back(note.id);
         module_->score.notes.push_back(std::move(note));
     }
-    module_->score.normalize();
+    resolveMonophonicOverwrite(module_->score, insertedIds);
     const auto errors = module_->score.validate();
     if (!errors.empty()) {
         module_->score = scoreFromJson(before);
@@ -905,20 +924,9 @@ void VocalEditor::addNoteAt(rack::math::Vec pos) {
     note.midiNote = yToMidi(pos.y);
     note.lyric = isJapanesePhonemizer(module_->phonemizerName) ? "あ" : "a";
 
-    int64_t nextStart = std::numeric_limits<int64_t>::max();
-    for (const auto& existing : module_->score.notes) {
-        if (note.startTick >= existing.startTick && note.startTick < existing.endTick())
-            return;  // Ordinary monophonic collision: leave the score unchanged.
-        if (existing.startTick > note.startTick) nextStart = std::min(nextStart, existing.startTick);
-    }
-    if (nextStart != std::numeric_limits<int64_t>::max())
-        note.durationTick = std::min(note.durationTick, nextStart - note.startTick);
-    if (note.durationTick < (module_->editorSnapEnabled ? module_->editorSnapTick : 1))
-        throw std::runtime_error("There is not enough room at this snap grid to add a note");
-
     const std::string id = note.id;
     module_->score.notes.push_back(std::move(note));
-    module_->score.normalize();
+    resolveMonophonicOverwrite(module_->score, {id});
     const auto errors = module_->score.validate();
     if (!errors.empty()) {
         module_->score = scoreFromJson(before);
@@ -965,31 +973,6 @@ void VocalEditor::updateDrawNote() {
     int64_t endTick = std::max(drawAnchorTick_, currentTick);
     if (startTick == endTick) endTick = startTick + minimumDuration;
 
-    // The score is monophonic. Clamp the live note to the free region around
-    // the initial click, so dragging toward a neighbour feels bounded rather
-    // than ending in an error dialog or corrupting the gesture.
-    int64_t freeStart = 0;
-    int64_t freeEnd = std::numeric_limits<int64_t>::max();
-    for (const auto& existing : module_->score.notes) {
-        if (existing.endTick() <= drawAnchorTick_)
-            freeStart = std::max(freeStart, existing.endTick());
-        else if (existing.startTick > drawAnchorTick_)
-            freeEnd = std::min(freeEnd, existing.startTick);
-    }
-    startTick = std::max(startTick, freeStart);
-    endTick = std::min(endTick, freeEnd);
-    if (endTick - startTick < minimumDuration) {
-        if (drawAnchorTick_ + minimumDuration <= freeEnd) {
-            startTick = std::max(drawAnchorTick_, freeStart);
-            endTick = startTick + minimumDuration;
-        } else if (drawAnchorTick_ - minimumDuration >= freeStart) {
-            endTick = std::min(drawAnchorTick_, freeEnd);
-            startTick = endTick - minimumDuration;
-        } else {
-            return;
-        }
-    }
-
     Note note;
     note.id = drawNoteId_;
     note.startTick = startTick;
@@ -997,7 +980,7 @@ void VocalEditor::updateDrawNote() {
     note.midiNote = yToMidi(drawCurrent_.y);
     note.lyric = isJapanesePhonemizer(module_->phonemizerName) ? "あ" : "a";
     module_->score.notes.push_back(std::move(note));
-    module_->score.normalize();
+    resolveMonophonicOverwrite(module_->score, {drawNoteId_});
     const auto found = std::find_if(module_->score.notes.begin(), module_->score.notes.end(),
         [&](const Note& candidate) { return candidate.id == drawNoteId_; });
     if (found != module_->score.notes.end())
@@ -1025,7 +1008,7 @@ void VocalEditor::openFileMenu() {
     menu->addChild(rack::createMenuItem("New blank score", "", [this] { toolbarAction(1); }));
     menu->addChild(rack::createSubmenuItem("New from template", "", [this](rack::ui::Menu* child) {
         child->addChild(rack::createSubmenuItem("English", "", [this](rack::ui::Menu* language) {
-            language->addChild(rack::createMenuItem("First sound / phrase: we sing a star", "", [this] { toolbarAction(0); }));
+            language->addChild(rack::createMenuItem("First sound / phrase: Wake up, little machine", "", [this] { toolbarAction(0); }));
             language->addChild(rack::createMenuItem("Sustained vowel instrument: a", "", [this] { toolbarAction(45); }));
             language->addChild(rack::createMenuItem("Triggered word: sing", "", [this] { toolbarAction(46); }));
             language->addChild(rack::createMenuItem("Looping phrase + one-beat rest", "", [this] { toolbarAction(47); }));
@@ -1073,6 +1056,42 @@ void VocalEditor::openEditMenu() {
     menu->addChild(new rack::ui::MenuSeparator);
     menu->addChild(rack::createMenuItem("Restore selected voice shaping to defaults", "",
         [this] { resetSelectedVoiceShaping(); }, noSelection));
+}
+
+void VocalEditor::openScoreMenu() {
+    auto* menu = rack::createMenu();
+    menu->addChild(rack::createMenuLabel("SCORE"));
+    menu->addChild(rack::createMenuItem("Singer...", module_->singerDisplayName(),
+        [this] { toolbarAction(3); }));
+    menu->addChild(rack::createMenuItem("Phonemizer", module_->phonemizerName,
+        [this] { toolbarAction(4); }));
+    menu->addChild(new rack::ui::MenuSeparator);
+    std::ostringstream timing;
+    timing << static_cast<int>(std::lround(module_->score.nominalBpm)) << " BPM  "
+           << module_->score.beatsPerBar << "/" << module_->score.beatUnit;
+    menu->addChild(rack::createMenuItem("Tempo / meter...", timing.str(),
+        [this] { toolbarAction(5); }));
+    menu->addChild(rack::createMenuItem("Jump to bar or tick...", "",
+        [this] { toolbarAction(7); }));
+    menu->addChild(new rack::ui::MenuSeparator);
+    menu->addChild(rack::createMenuItem("Insert lyric between notes", insertingLyric_ ? "On" : "",
+        [this] { toolbarAction(23); }));
+}
+
+void VocalEditor::openSectionMenu() {
+    auto* menu = rack::createMenu();
+    menu->addChild(rack::createMenuLabel("SECTION"));
+    const bool noSelection = selection_.empty();
+    const bool noSections = module_->score.sections.empty();
+    menu->addChild(rack::createMenuItem("Create from selected notes...", "",
+        [this] { toolbarAction(14); }, noSelection));
+    menu->addChild(new rack::ui::MenuSeparator);
+    menu->addChild(rack::createMenuItem("Edit active range...", "",
+        [this] { toolbarAction(15); }, noSections));
+    menu->addChild(rack::createMenuItem("Rename active section...", "",
+        [this] { toolbarAction(16); }, noSections));
+    menu->addChild(rack::createMenuItem("Delete active section", "",
+        [this] { toolbarAction(17); }, noSections));
 }
 
 void VocalEditor::openViewMenu() {
@@ -1303,8 +1322,6 @@ void VocalEditor::draw(const DrawArgs& args) {
 
     fillRect(vg, toolbar_, nvgRGB(15, 20, 28));
     strokeRect(vg, toolbar_, nvgRGB(48, 58, 74));
-    fillRect(vg, sidebar_, nvgRGB(17, 22, 31));
-    strokeRect(vg, sidebar_, nvgRGB(48, 58, 74));
     fillRect(vg, inspector_, nvgRGB(17, 22, 31));
     strokeRect(vg, inspector_, nvgRGB(48, 58, 74));
 
@@ -1377,10 +1394,11 @@ void VocalEditor::draw(const DrawArgs& args) {
         } else {
             std::string label = inspectorAction ? inspectorLabel(hit.action) : actionLabel(hit.action);
             if (hit.action == 6)
-                label = module_->editorSnapEnabled ? "SNAP: " + snapLabel(module_->editorSnapTick) : "SNAP: OFF";
+                label = module_->editorSnapEnabled ? "SNAP " + snapLabel(module_->editorSnapTick) : "SNAP OFF";
             if (hit.action == 31)
                 label = module_->params[VocalModule::RANGE_PARAM].getValue() >= 0.5f ? "RANGE: SECTION" : "RANGE: SONG";
-            else if (hit.action == 32 || hit.action == 33 || hit.action == 37)
+            else if (hit.action == 6 || hit.action == 32 || hit.action == 33 ||
+                     hit.action == 34 || hit.action == 37 || hit.action == 48)
                 label += "  ▾";
             const float fontSize = hit.rect.size.x < 62.f ? 8.2f : hit.rect.size.x < 78.f ? 9.f : 9.6f;
             text(vg, inspectorAction ? hit.rect.pos.x + 10.f : hit.rect.pos.x + hit.rect.size.x * 0.5f,
@@ -1389,9 +1407,6 @@ void VocalEditor::draw(const DrawArgs& args) {
                  label, inspectorAction ? NVG_ALIGN_LEFT : NVG_ALIGN_CENTER);
         }
     }
-
-    for (const auto& heading : sidebarHeadings_)
-        text(vg, sidebar_.pos.x + 12.f, heading.second, 9.f, kTextMuted, heading.first);
 
     text(vg, inspector_.pos.x + 12.f, inspector_.pos.y + 17.f, 10.f, kTextMuted, "NOTE INSPECTOR");
     if (hasSelectedNote) {
@@ -1509,28 +1524,6 @@ void VocalEditor::draw(const DrawArgs& args) {
     if (!inspectorError_.empty())
         text(vg, inspector_.pos.x + 12.f, inspector_.pos.y + inspector_.size.y - 51.f,
              7.8f, kDanger, inspectorError_);
-
-    const float infoY = sidebar_.pos.y + sidebar_.size.y - 61.f;
-    if (infoY > sidebarHeadings_.back().second + 55.f) {
-        nvgSave(vg);
-        nvgScissor(vg, sidebar_.pos.x, sidebar_.pos.y, sidebar_.size.x, sidebar_.size.y);
-        strokeRect(vg, {{sidebar_.pos.x + 12.f, infoY - 9.f}, {sidebar_.size.x - 24.f, 1.f}}, nvgRGB(48, 58, 74));
-        std::ostringstream timing;
-        timing << static_cast<int>(std::lround(module_->score.nominalBpm)) << " BPM  |  "
-               << module_->score.beatsPerBar << "/" << module_->score.beatUnit << "  |  "
-               << (module_->editorSnapEnabled ? std::to_string(module_->editorSnapTick) + " tick snap" : "snap off");
-        text(vg, sidebar_.pos.x + 12.f, infoY + 5.f, 10.f, kTextMuted, timing.str());
-        text(vg, sidebar_.pos.x + 12.f, infoY + 21.f, 10.f, kTextMuted, module_->phonemizerName);
-        if (!selection_.empty() && *selection_.begin() < module_->score.notes.size()) {
-            const auto& note = module_->score.notes[*selection_.begin()];
-            text(vg, sidebar_.pos.x + 12.f, infoY + 39.f, 11.f, kText,
-                 noteName(note.midiNote) + "  |  " + note.lyric + "  |  " + std::to_string(note.durationTick) + " ticks");
-        } else {
-            textBox(vg, sidebar_.pos.x + 12.f, infoY + 30.f, sidebar_.size.x - 24.f,
-                    9.2f, kTextMuted, "Select a note to edit its voice shaping");
-        }
-        nvgRestore(vg);
-    }
 
     const rack::math::Rect editorLabels = {{keyboard_.pos.x, ruler_.pos.y},
                                             {keyboard_.size.x, timelineScrollBar_.pos.y + timelineScrollBar_.size.y - ruler_.pos.y}};
@@ -1773,10 +1766,11 @@ void VocalEditor::draw(const DrawArgs& args) {
             std::string alias = phone.selectedAlias.empty() ? phone.requestedAlias : phone.selectedAlias;
             const bool missing = !phone.oto;
             if (missing) alias = "MISSING: " + alias;
-            const int64_t positionTick = phone.relativeTick +
-                (firstPhone ? note.phonemeTiming.positionOffsetTick.value_or(0) : 0);
+            const int64_t timingOffset = note.phonemeTiming.positionOffsetTick.value_or(0);
+            const int64_t positionTick = phone.relativeTick + timingOffset;
             const int64_t eventEndTick = !lastPhone
-                ? std::max<int64_t>(positionTick + 1, notePhones[phoneIndex + 1]->relativeTick)
+                ? std::max<int64_t>(positionTick + 1,
+                    notePhones[phoneIndex + 1]->relativeTick + timingOffset)
                 : note.endTick();
             const float positionX = piano_.pos.x +
                 (positionTick - module_->editorScrollX) * module_->editorZoomX;
@@ -1826,7 +1820,7 @@ void VocalEditor::draw(const DrawArgs& args) {
                     (nextIsFirst ? nextPhoneNote->phonemeTiming.overlapDeltaMs.value_or(0.f) : 0.f),
                     -500.f, nextPreutter);
                 const int64_t nextPosition = nextPhone->relativeTick +
-                    (nextIsFirst ? nextPhoneNote->phonemeTiming.positionOffsetTick.value_or(0) : 0);
+                    nextPhoneNote->phonemeTiming.positionOffsetTick.value_or(0);
                 envelopeEndTick = static_cast<float>(nextPosition +
                     (nextOverlap - nextPreutter) * timingTicksPerMs);
                 naturalFadeOutMs = nextOverlap > 0.f ? nextOverlap : 35.f;
@@ -1974,7 +1968,7 @@ void VocalEditor::draw(const DrawArgs& args) {
     fillRect(vg, timelineScrollBar_, nvgRGB(12, 17, 24));
     const float overviewStart = -static_cast<float>(kTicksPerQuarter);
     const float overviewEnd = std::max(overviewStart + 1.f,
-        static_cast<float>(module_->score.endTick() + kTicksPerQuarter));
+        static_cast<float>(module_->score.endTick() + timelineTailTicks(module_->score)));
     const float overviewTicks = overviewEnd - overviewStart;
     const float visibleTicks = piano_.size.x / std::max(0.02f, module_->editorZoomX);
     const float trackX = timelineScrollBar_.pos.x + 4.f;
@@ -2196,6 +2190,7 @@ bool VocalEditor::startCurvePointDrag(rack::math::Vec pos) {
 bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
     if (!phonemeLane_.contains(pos) || selection_.empty()) return false;
     const auto diagnostics = module_->renderSlot->copyDiagnostics();
+    const auto bodyHit = phonemeAt(pos);
     const double ticksPerMs = module_->score.nominalBpm * kTicksPerQuarter / 60000.0;
     for (const auto noteIndex : selection_) {
         if (noteIndex >= module_->score.notes.size()) continue;
@@ -2204,7 +2199,7 @@ bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
             [&](const PhonemeEvent& candidate) { return candidate.sourceNoteId == note.id && candidate.oto; });
         if (phone == diagnostics.phonemes.end()) continue;
         const float positionX = piano_.pos.x +
-            (note.startTick + note.phonemeTiming.positionOffsetTick.value_or(0) - module_->editorScrollX) *
+            (phone->relativeTick + note.phonemeTiming.positionOffsetTick.value_or(0) - module_->editorScrollX) *
                 module_->editorZoomX;
         const float actualPreutter = std::clamp(static_cast<float>(phone->oto->preutterMs) +
             note.phonemeTiming.preutteranceDeltaMs.value_or(0.f), 0.f, 500.f);
@@ -2226,6 +2221,9 @@ bool VocalEditor::startPhonemeTimingDrag(rack::math::Vec pos) {
             timingHandle_ = TimingHandle::Overlap;
             timingStartActualMs_ = actualOverlap;
             timingOtoMs_ = static_cast<float>(phone->oto->overlapMs);
+        } else if (bodyHit.first == noteIndex) {
+            timingHandle_ = TimingHandle::Position;
+            timingStartPositionTick_ = note.phonemeTiming.positionOffsetTick.value_or(0);
         } else {
             continue;
         }
@@ -2243,7 +2241,7 @@ void VocalEditor::setTimelineScrollFromX(float x) {
     module_->editorFollowPlayhead = false;
     const float overviewStart = -static_cast<float>(kTicksPerQuarter);
     const float overviewEnd = std::max(overviewStart + 1.f,
-        static_cast<float>(module_->score.endTick() + kTicksPerQuarter));
+        static_cast<float>(module_->score.endTick() + timelineTailTicks(module_->score)));
     const float visibleTicks = piano_.size.x / std::max(0.02f, module_->editorZoomX);
     const float maximumScroll = std::max(overviewStart, overviewEnd - visibleTicks);
     const float trackWidth = std::max(1.f, timelineScrollBar_.size.x - 8.f);
@@ -2353,7 +2351,8 @@ void VocalEditor::onButton(const ButtonEvent& e) {
     for (const auto& hit : actionHits_) {
         if (hit.rect.contains(e.pos)) {
             hoveredAction_ = hit.action;
-            if (hit.action == 6 || hit.action == 32 || hit.action == 33 || hit.action == 37) {
+            if (hit.action == 6 || hit.action == 32 || hit.action == 33 || hit.action == 34 ||
+                hit.action == 37 || hit.action == 48) {
                 pendingMenuAction_ = hit.action;
                 e.consume(this);
                 return;
@@ -2387,20 +2386,23 @@ void VocalEditor::onButton(const ButtonEvent& e) {
         mode_ = EditMode::Notes;
         clearCurvePointSelection();
     }
-    if (startPhonemeTimingDrag(e.pos)) {
+    if (phonemeLane_.contains(e.pos)) {
+        const auto phonemeHit = phonemeAt(e.pos);
+        const size_t noteHit = phonemeHit.first < module_->score.notes.size()
+            ? phonemeHit.first : noteAtTick(xToTick(e.pos.x));
+        if (noteHit < module_->score.notes.size()) {
+            if (!(e.mods & GLFW_MOD_SHIFT)) selection_.clear();
+            selection_.insert(noteHit);
+            clearCurvePointSelection();
+            if (startPhonemeTimingDrag(e.pos)) {
+                e.consume(this);
+                return;
+            }
+        }
         e.consume(this);
         return;
     }
     if (startCurvePointDrag(e.pos) || addCurvePoint(e.pos)) {
-        e.consume(this);
-        return;
-    }
-    if (phonemeLane_.contains(e.pos)) {
-        const size_t phonemeHit = noteAtTick(xToTick(e.pos.x));
-        if (phonemeHit < module_->score.notes.size()) {
-            if (!(e.mods & GLFW_MOD_SHIFT)) selection_.clear();
-            selection_.insert(phonemeHit);
-        }
         e.consume(this);
         return;
     }
@@ -2568,10 +2570,19 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
         timingDragPixels_ = timingDragPixels_.plus(e.mouseDelta);
         module_->score = scoreFromJson(timingDragBefore_);
         if (timingNoteIndex_ >= module_->score.notes.size()) return;
+        auto& timing = module_->score.notes[timingNoteIndex_].phonemeTiming;
+        if (timingHandle_ == TimingHandle::Position) {
+            const int64_t deltaTick = static_cast<int64_t>(std::llround(
+                timingDragPixels_.x / std::max(0.02f, module_->editorZoomX)));
+            const int64_t position = std::clamp<int64_t>(
+                timingStartPositionTick_ + deltaTick, -240, 240);
+            timing.positionOffsetTick = position == 0
+                ? std::nullopt : std::optional<int64_t>(position);
+            return;
+        }
         const double ticksPerMs = module_->score.nominalBpm * kTicksPerQuarter / 60000.0;
         const float deltaMs = static_cast<float>(timingDragPixels_.x /
             std::max(0.0001, ticksPerMs * module_->editorZoomX));
-        auto& timing = module_->score.notes[timingNoteIndex_].phonemeTiming;
         const float actual = timingHandle_ == TimingHandle::Preutterance
             ? std::clamp(timingStartActualMs_ - deltaMs, 0.f, 500.f)
             : std::clamp(timingStartActualMs_ + deltaMs, -500.f, 500.f);
@@ -2612,6 +2623,10 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
         : rawDelta;
     int deltaPitch = static_cast<int>(std::lround(-dragPixels_.y / module_->editorZoomY));
     module_->score = scoreFromJson(dragBefore_);
+    const auto isDragged = [&](const Note& note) {
+        return std::find(dragSelectionIds_.begin(), dragSelectionIds_.end(), note.id) !=
+               dragSelectionIds_.end();
+    };
 
     // A body drag is a rigid translation: clamp the delta once for the
     // entire selection rather than clamping each note independently.
@@ -2619,9 +2634,8 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
         int64_t firstStart = std::numeric_limits<int64_t>::max();
         int lowestPitch = 127;
         int highestPitch = 0;
-        for (const size_t index : selection_) {
-            if (index >= module_->score.notes.size()) continue;
-            const auto& note = module_->score.notes[index];
+        for (const auto& note : module_->score.notes) {
+            if (!isDragged(note)) continue;
             firstStart = std::min(firstStart, note.startTick);
             lowestPitch = std::min(lowestPitch, note.midiNote);
             highestPitch = std::max(highestPitch, note.midiNote);
@@ -2630,9 +2644,8 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
             deltaTick = std::max(deltaTick, -firstStart);
         deltaPitch = std::clamp(deltaPitch, -lowestPitch, 127 - highestPitch);
     }
-    for (const size_t index : selection_) {
-        if (index >= module_->score.notes.size()) continue;
-        auto& note = module_->score.notes[index];
+    for (auto& note : module_->score.notes) {
+        if (!isDragged(note)) continue;
         if (resizingStart_) {
             if (note.id != dragPrimaryNoteId_) continue;
             const int64_t originalEnd = note.endTick();
@@ -2648,10 +2661,16 @@ void VocalEditor::onDragMove(const DragMoveEvent& e) {
             note.midiNote = std::clamp(note.midiNote + deltaPitch, 0, 127);
         }
     }
-    if (!resizing_ && !resizingStart_ && selection_.size() == 1) {
-        const size_t index = *selection_.begin();
-        if (index < module_->score.notes.size() && module_->score.notes[index].midiNote != lastDragAuditionMidi_) {
-            lastDragAuditionMidi_ = module_->score.notes[index].midiNote;
+    const std::vector<std::string> overwriteIds = (resizing_ || resizingStart_)
+        ? std::vector<std::string>{dragPrimaryNoteId_} : dragSelectionIds_;
+    resolveMonophonicOverwrite(module_->score, overwriteIds);
+    selection_.clear();
+    for (size_t index = 0; index < module_->score.notes.size(); ++index)
+        if (isDragged(module_->score.notes[index])) selection_.insert(index);
+    if (!resizing_ && !resizingStart_ && dragSelectionIds_.size() == 1) {
+        const auto dragged = std::find_if(module_->score.notes.begin(), module_->score.notes.end(), isDragged);
+        if (dragged != module_->score.notes.end() && dragged->midiNote != lastDragAuditionMidi_) {
+            lastDragAuditionMidi_ = dragged->midiNote;
             module_->beginAuditionMidiNote(lastDragAuditionMidi_);
         }
     }
@@ -2683,8 +2702,10 @@ void VocalEditor::onDragEnd(const DragEndEvent&) {
     if (timingDragging_) {
         timingDragging_ = false;
         module_->score.normalize();
-        module_->commitScoreEdit(timingDragBefore_,
-            timingHandle_ == TimingHandle::Preutterance ? "Move phoneme start" : "Move phoneme overlap");
+        const char* label = timingHandle_ == TimingHandle::Position ? "Move phoneme position"
+            : timingHandle_ == TimingHandle::Preutterance ? "Move phoneme start"
+            : "Move phoneme overlap";
+        module_->commitScoreEdit(timingDragBefore_, label);
         timingHandle_ = TimingHandle::None;
         timingNoteIndex_ = std::numeric_limits<size_t>::max();
         return;
@@ -2731,24 +2752,28 @@ void VocalEditor::onDragEnd(const DragEndEvent&) {
 void VocalEditor::onHoverScroll(const HoverScrollEvent& e) {
     module_->editorFollowPlayhead = false;
     const int mods = APP->window->getMods();
-    // macOS trackpads can report a large burst for one gesture.  Treat the
-    // delta as a bounded wheel gesture and pan by screen pixels, not a fixed
-    // number of musical ticks.  This keeps navigation calm at Fit Song and
-    // precise when the timeline is zoomed in.
-    const float wheel = std::clamp(e.scrollDelta.y, -2.f, 2.f);
-    if ((mods & RACK_MOD_CTRL) && (mods & GLFW_MOD_SHIFT))
-        module_->editorZoomY = std::clamp(module_->editorZoomY * std::pow(1.08f, wheel), 4.f, 40.f);
-    else if (mods & RACK_MOD_CTRL)
-        module_->editorZoomX = std::clamp(module_->editorZoomX * std::pow(1.08f, wheel), 0.02f, 2.f);
-    else if (mods & GLFW_MOD_SHIFT) {
-        const float panTicks = wheel * 28.f / std::max(0.02f, module_->editorZoomX);
-        const float minimumScroll = -static_cast<float>(kTicksPerQuarter);
-        const float visibleTicks = piano_.size.x / std::max(0.02f, module_->editorZoomX);
-        const float maximumScroll = std::max(minimumScroll,
-            static_cast<float>(module_->score.endTick() + kTicksPerQuarter) - visibleTicks);
-        module_->editorScrollX = std::clamp(module_->editorScrollX - panTicks, minimumScroll, maximumScroll);
-    } else
-        module_->editorScrollY = std::clamp(module_->editorScrollY + wheel * 18.f, -1200.f, 1200.f);
+    const auto intent = editorScrollIntent(e.scrollDelta.x, e.scrollDelta.y,
+        mods & RACK_MOD_CTRL, mods & GLFW_MOD_SHIFT);
+    if (intent.zoomPitches)
+        module_->editorZoomY = std::clamp(
+            module_->editorZoomY * std::pow(1.08f, intent.zoomSteps), 4.f, 40.f);
+    else if (intent.zoomTimeline)
+        module_->editorZoomX = std::clamp(
+            module_->editorZoomX * std::pow(1.08f, intent.zoomSteps), 0.02f, 2.f);
+    else {
+        if (std::abs(intent.timelinePixels) > 0.001f) {
+            const float panTicks = intent.timelinePixels / std::max(0.02f, module_->editorZoomX);
+            const float minimumScroll = -static_cast<float>(kTicksPerQuarter);
+            const float visibleTicks = piano_.size.x / std::max(0.02f, module_->editorZoomX);
+            const float maximumScroll = std::max(minimumScroll,
+                static_cast<float>(module_->score.endTick() + timelineTailTicks(module_->score)) - visibleTicks);
+            module_->editorScrollX = std::clamp(
+                module_->editorScrollX - panTicks, minimumScroll, maximumScroll);
+        }
+        if (std::abs(intent.pitchPixels) > 0.001f)
+            module_->editorScrollY = std::clamp(
+                module_->editorScrollY + intent.pitchPixels, -1200.f, 1200.f);
+    }
     e.consume(this);
 }
 
@@ -3013,6 +3038,8 @@ void VocalEditor::toolbarAction(int action) {
             openFileMenu();
         } else if (action == 33) {
             openEditMenu();
+        } else if (action == 34) {
+            openScoreMenu();
         } else if (action == 35) {
             resetSelectedVoiceShaping();
         } else if (action == 36) {
@@ -3023,6 +3050,8 @@ void VocalEditor::toolbarAction(int action) {
             beginInspectorEdit(InspectorField::Tone);
         } else if (action == 39) {
             beginInspectorEdit(InspectorField::Start);
+        } else if (action == 48) {
+            openSectionMenu();
         }
     } catch (const std::exception& error) {
         osdialog_message(OSDIALOG_ERROR, OSDIALOG_OK, error.what());
@@ -3274,6 +3303,7 @@ std::string VocalEditor::inspectorValue(InspectorField field) const {
 bool VocalEditor::applyInspectorValue(InspectorField field, const std::string& entered) {
     if (inspectorEditNoteIndex_ >= module_->score.notes.size()) return false;
     auto& note = module_->score.notes[inspectorEditNoteIndex_];
+    const std::string editedNoteId = note.id;
     auto parseFloat = [&](float& result) {
         try {
             size_t used = 0;
@@ -3377,7 +3407,10 @@ bool VocalEditor::applyInspectorValue(InspectorField field, const std::string& e
         else if (field == InspectorField::VibratoRate)
             note.vibrato.rateHz = std::clamp(number, 0.1f, 20.f);
     }
-    module_->score.normalize();
+    if (field == InspectorField::Start || field == InspectorField::Length)
+        resolveMonophonicOverwrite(module_->score, {editedNoteId});
+    else
+        module_->score.normalize();
     const auto errors = module_->score.validate();
     if (!errors.empty()) {
         inspectorError_ = "Timing overlaps another note";
@@ -3663,10 +3696,11 @@ void VocalEditor::editNoteTiming() {
     const auto start = parseMusicalPosition(module_->score, startText);
     if (!start) throw std::runtime_error("Start must use bar:beat or bar:beat+ticks, for example 2:1+60");
     const auto before = scoreToJson(module_->score);
+    const std::string editedNoteId = note.id;
     note.startTick = *start;
     note.durationTick = std::max<int64_t>(1,
         static_cast<int64_t>(std::llround(durationBeats * ticksPerBeat(module_->score))));
-    module_->score.normalize();
+    resolveMonophonicOverwrite(module_->score, {editedNoteId});
     const auto errors = module_->score.validate();
     if (!errors.empty()) {
         module_->score = scoreFromJson(before);
@@ -3935,7 +3969,7 @@ void VocalEditor::ensureNoteVisible(size_t noteIndex) {
         module_->editorScrollX = static_cast<float>(note.startTick) - visibleTicks * 0.25f;
         const float minimumScroll = -static_cast<float>(kTicksPerQuarter);
         const float maximumScroll = std::max(minimumScroll,
-            static_cast<float>(module_->score.endTick() + kTicksPerQuarter) - visibleTicks);
+            static_cast<float>(module_->score.endTick() + timelineTailTicks(module_->score)) - visibleTicks);
         module_->editorScrollX = std::clamp(module_->editorScrollX, minimumScroll, maximumScroll);
     }
     if (rect.pos.y + rect.size.y < piano_.pos.y + verticalMargin ||

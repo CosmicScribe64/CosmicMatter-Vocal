@@ -188,12 +188,69 @@ def write_suite(root: pathlib.Path, singer: str, phonemizer: str,
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
+def write_exact_template_manifest(root: pathlib.Path, score_path: pathlib.Path) -> None:
+    """Describe the shipped English first-sound score for acoustic analysis.
+
+    The USTX itself is produced by the production C++ exporter in the runner,
+    so this row exercises exactly the score, interchange path, phonemizer and
+    renderer users receive rather than a separately hand-authored lookalike.
+    """
+    score = json.loads(score_path.read_text(encoding="utf-8"))
+    notes = score["notes"]
+    group = "template:wake-up-little-machine"
+    boundaries = []
+    for left, right in zip(notes, notes[1:]):
+        tick = right["startTick"]
+        boundaries.append({
+            "tick": tick,
+            "seconds": seconds(tick),
+            "group": group,
+            "label": f"{left['lyric']} to {right['lyric']}",
+            "leftLyric": left["lyric"],
+            "rightLyric": right["lyric"],
+            "expectedAlias": None,
+            "leftTone": left["midiNote"],
+            "rightTone": right["midiNote"],
+            "leftDurationTick": left["durationTick"],
+            "rightDurationTick": right["durationTick"],
+        })
+    boundaries.sort(key=lambda item: (item["tick"], item["group"], item["label"]))
+    duration = max(note["startTick"] + note["durationTick"] for note in notes)
+    manifest = {
+        "schemaVersion": 1,
+        "bpm": score["nominalBpm"],
+        "ticksPerQuarter": TPQ,
+        "notes": len(notes),
+        "expectedAliases": [],
+        "noteEvents": [{
+            "seconds": seconds(note["startTick"]),
+            "durationSeconds": seconds(note["durationTick"]),
+            "tone": note["midiNote"],
+            "lyric": note["lyric"],
+            "group": group,
+        } for note in notes],
+        "boundaries": boundaries,
+        "durationSeconds": seconds(duration),
+        "coverage": {
+            "phrases": 1,
+            "wordsOrExtenders": len(notes),
+            "continuationBoundaries": sum(note["lyric"].startswith("+") for note in notes),
+            "internalPhoneBoundaries": 0,
+        },
+    }
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "corpus-manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output_dir", type=pathlib.Path)
     args = parser.parse_args()
     output = args.output_dir
     repo = pathlib.Path(__file__).resolve().parent.parent
+    write_exact_template_manifest(
+        output / "template", repo / "tests" / "fixtures" / "english_first_sound.json")
 
     broad_adachi_phrases = [
         ("matrix:function", ["and", "are", "be", "can", "do"], None),

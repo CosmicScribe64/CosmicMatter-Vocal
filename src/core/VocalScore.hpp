@@ -93,6 +93,15 @@ struct VocalScore {
     void touch() noexcept { ++revision; }
 };
 
+// Keeps the notes named by priorityNoteIds exactly where an editor gesture
+// placed them and removes their time spans from every other note. A collided
+// note keeps its earliest remaining contiguous span; this matches OpenUtau's
+// pencil/fix-overlap convention without leaving a temporarily invalid score.
+// Curves are sliced and rebased with the surviving audio span.
+void resolveMonophonicOverwrite(VocalScore& score,
+                                const std::vector<std::string>& priorityNoteIds,
+                                int64_t minimumDurationTick = 1);
+
 std::string makeUuid();
 VocalScore makeDefaultScore();
 VocalScore makeJapaneseFirstSoundScore();

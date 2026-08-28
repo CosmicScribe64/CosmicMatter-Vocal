@@ -17,17 +17,17 @@ Both renders use the same generated/fixed USTX fixtures and the bundled official
 
 | Measure | Result |
 |---|---:|
-| Median zero-lag boundary correlation | 0.9187 |
-| Median best-lag boundary correlation | 0.9324 |
-| P10 best-lag boundary correlation | 0.6975 |
-| Median / p90 absolute boundary lag | 3.0 / 8.0 ms |
-| Median / p90 A:C pitch difference | 0.73 / 4.16 cents |
+| Median zero-lag boundary correlation | 0.9171 |
+| Median best-lag boundary correlation | 0.9315 |
+| P10 best-lag boundary correlation | 0.7014 |
+| Median / p90 absolute boundary lag | 3.0 / 9.0 ms |
+| Median / p90 A:C pitch difference | 0.73 / 4.15 cents |
 | Worst reliable A:C pitch difference | 11.63 cents |
 | Worst VocalRack target-pitch error | 15.00 cents |
-| Median / p10 log-mel correlation | 0.9637 / 0.9022 |
-| Median / p90 log-mel RMSE | 4.95 / 8.15 dB |
-| P90 absolute level difference | 1.94 dB |
-| P90 warmth / high-band ratio difference | 0.0765 / 0.0735 |
+| Median / p10 log-mel correlation | 0.9636 / 0.9018 |
+| Median / p90 log-mel RMSE | 4.96 / 8.19 dB |
+| P90 absolute level difference | 1.93 dB |
+| P90 warmth / high-band ratio difference | 0.0802 / 0.0775 |
 | Continuations: median best-lag correlation / lag | 0.7873 / 1.0 ms |
 | Continuations: median pitch difference / log-mel correlation | 0.06 cents / 0.9703 |
 

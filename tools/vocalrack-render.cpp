@@ -22,6 +22,7 @@ static std::string readFile(const std::filesystem::path& path) {
 int main(int argc, char** argv) {
     try {
         std::filesystem::path singerPath, scorePath, projectPath, nativeProjectPath, outputPath, exportUstxPath;
+        std::string exportSingerId;
         int trackIndex = 0;
         int soloNote = -1;
         bool inspectOnly = false;
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
             else if (arg == "--ustx" || arg == "--ust" || arg == "--midi" || arg == "--project") projectPath = value();
             else if (arg == "--vocalrack") nativeProjectPath = value();
             else if (arg == "--export-ustx") exportUstxPath = value();
+            else if (arg == "--export-singer-id") exportSingerId = value();
             else if (arg == "--track") trackIndex = std::stoi(value());
             else if (arg == "--solo-note") soloNote = std::stoi(value());
             else if (arg == "--out") outputPath = value();
@@ -45,7 +47,8 @@ int main(int argc, char** argv) {
             else if (arg == "--help") {
                 std::cout << "vocalrack-render --singer FOLDER (--score SCORE.json | --project SCORE.ustx/.ust/.mid) --out FILE.wav"
                              " [--track N] [--solo-note N] [--bpm N] [--transpose N]\n"
-                             "vocalrack-render (--score SCORE.json | --vocalrack PROJECT.vocalrack) --export-ustx FILE.ustx\n"
+                             "vocalrack-render (--score SCORE.json | --vocalrack PROJECT.vocalrack) --export-ustx FILE.ustx"
+                             " [--export-singer-id ID] [--phonemizer NAME]\n"
                              "vocalrack-render --inspect --project SCORE.ustx/.ust/.mid\n";
                 return 0;
             } else throw std::runtime_error("Unknown option " + arg);
@@ -82,6 +85,7 @@ int main(int argc, char** argv) {
         }
         if (!exportUstxPath.empty()) {
             UstxExportOptions exportOptions;
+            exportOptions.singer = exportSingerId;
             exportOptions.phonemizer = options.phonemizer == kJapaneseAutoPhonemizer
                 ? "OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer"
                 : options.phonemizer == kJapaneseCvvcPhonemizer

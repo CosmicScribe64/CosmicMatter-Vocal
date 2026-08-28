@@ -147,8 +147,8 @@ The expanded editor is arranged around the piano roll.
 
 | Region | Contents |
 |---|---|
-| Top bar | File, edit, view, transport, range, snap, and score settings |
-| Left sidebar | Note tools, singer and language controls, section controls, and lane modes |
+| Top bar | File, Edit, View, Score, Snap, and Section menus; note tools; transport; and range controls |
+| Piano keyboard | Pitch names, octave landmarks, audition, and pitch/dynamics lane toggles |
 | Piano roll | Notes, lyrics, performed pitch, and playhead |
 | Phoneme lane | Resolved aliases and pronunciation timing |
 | Pitch and dynamics lanes | Per-note expression curves |
@@ -157,7 +157,11 @@ The expanded editor is arranged around the piano roll.
 
 ### Add and arrange notes
 
-The score is monophonic. Notes may touch but cannot overlap.
+The score is monophonic. Notes may touch but the saved score never contains an
+overlap. Drawing, moving, resizing, or pasting into occupied time gives the
+edited notes priority: fully covered notes are removed, while a partly covered
+note is trimmed to its earliest remaining span. This follows OpenUtau's
+pencil/fix-overlap convention and the whole operation is undoable.
 
 | Tool | Shortcut | Action |
 |---|---:|---|
@@ -221,6 +225,7 @@ Most notes should use the timing supplied by the voicebank. Use these controls w
 
 The phoneme lane shows the resolved alias and its envelope:
 
+- Drag any envelope body horizontally to move all resolved phonemes for that note.
 - Drag **START** to move preutterance.
 - Drag **XFADE** to change overlap with the previous phoneme.
 - Use the note inspector or the note's context menu for exact values.
@@ -229,7 +234,7 @@ The timing fields are:
 
 | Field | Effect |
 |---|---|
-| **POSITION** | Moves the phoneme event in score ticks. |
+| **POSITION** | Moves every resolved phoneme for the note in score ticks. |
 | **PREUTTER** | Starts the sample before or after its inherited preutterance time. |
 | **OVERLAP** | Changes its crossfade with the preceding phoneme. |
 | **ATTACK** | Changes the start fade. |
@@ -241,7 +246,7 @@ Choose **Restore selected voice shaping to defaults** to clear pronunciation ove
 
 ### Snap and navigate
 
-**SNAP** offers quarter, eighth, triplet, sixteenth, and thirty-second-note divisions. Turn snap off for tick-level timing. The timeline uses 480 ticks per quarter note.
+The dedicated **SNAP** menu offers quarter, eighth, triplet, sixteenth, and thirty-second-note divisions. Turn snap off for tick-level timing. The timeline uses 480 ticks per quarter note and keeps eight empty bars available after the final note for navigation and full-song continuation. **Fit complete song** still frames the authored notes rather than this editing buffer.
 
 | Gesture | Action |
 |---|---|
@@ -255,9 +260,9 @@ Choose **Restore selected voice shaping to defaults** to clear pronunciation ove
 
 ### Create and manage sections
 
-Select one or more notes and choose **Edit > Create section from selected...**. Sections are named, non-overlapping playback ranges.
+Select one or more notes and choose **Section > Create from selected notes...**. Sections are named, non-overlapping playback ranges.
 
-Use the section controls in the left sidebar or right-click inside a section to:
+Use the dedicated **Section** menu or right-click inside a section to:
 
 - Fit the section in the editor.
 - Rename it.

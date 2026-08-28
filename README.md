@@ -8,15 +8,21 @@ The plugin is free and works without a DAW or OpenUtau installation. It includes
 
 ## Interface
 
+### Vocal module
+
+*A 64 HP singing voice: author or import a score, clock it, modulate it, and patch the result like any other Rack sound source.*
+
 <p align="center">
   <img src="docs/images/vocal-module.png" alt="The Vocal module running in VCV Rack, with its piano roll, transport controls, expression inputs, and voice output visible" width="645">
 </p>
-<p align="center"><sub>The 64 HP Vocal module turns a written score into a clockable, patchable Rack voice.</sub></p>
+
+### Full score editor
+
+*A focused piano-roll workspace for notes, lyrics, phonemes, pitch, dynamics, vibrato, timing, and playable song sections.*
 
 <p align="center">
   <img src="docs/images/vocal-editor.png" alt="The full Vocal score editor showing notes, lyrics, phoneme timing, pitch, dynamics, and song sections" width="1100">
 </p>
-<p align="center"><sub>The full score editor keeps notes, lyrics, phonemes, pitch, dynamics, and sections in one view.</sub></p>
 
 ## Modules
 
@@ -139,13 +145,9 @@ Keep a `.vocalrack` file when Rack-only transport, section, CV, and editor state
 |---|---|
 | [MANUAL.md](MANUAL.md) | Guided patches, editor workflows, controls, ports, troubleshooting, and glossary |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Score and voicebank models, rendering, thread boundaries, persistence, import mappings, and compatibility tests |
-| [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) | Specification audit and current verification status |
-| [USER_STORY_MATRIX.md](USER_STORY_MATRIX.md) | User workflows mapped to automated and real-Rack evidence |
-| [UX_RESEARCH.md](UX_RESEARCH.md) | Interface research and visual verification contract |
 | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Voicebank, dictionary, icon, and library notices |
 | [CHANGELOG.md](CHANGELOG.md) | User-visible changes by plug-in version |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Reproducible builds, tests, bug reports, and contribution expectations |
-| [spec.md](spec.md) | Original implementation specification |
 
 Current test reports are stored under `test-artifacts/`, including the [real-Rack end-to-end report](test-artifacts/e2e/TEST_REPORT.md), [OpenUtau regression report](test-artifacts/openutau-regression/TEST_REPORT.md), and [English regression report](test-artifacts/openutau-english-regression/TEST_REPORT.md).
 

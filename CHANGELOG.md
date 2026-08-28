@@ -16,6 +16,8 @@ Initial public release candidate for VCV Rack 2.
 - USTX and lossless project export.
 - Internal/external transport, phrase triggering, looping, sections, END pulse,
   expression CV, pitch curves, dynamics, vibrato, and phoneme timing.
+- OpenUtau-style monophonic collision editing: newly drawn, moved, resized, or
+  pasted notes take priority and trim/remove covered notes in one undoable edit.
 - Cross-platform CI definitions for Linux x64, Windows x64, macOS x64, and
   macOS arm64.
 - Automated renderer comparisons against pinned OpenUtau Classic plus a real

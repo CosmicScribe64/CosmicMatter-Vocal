@@ -346,7 +346,7 @@ struct VocalWidget : rack::app::ModuleWidget {
                     module->phonemizerName = module->singerId == "builtin:adachi-rei"
                         ? kEnglishToJapanesePhonemizer : kEnglishXSampaPhonemizer;
                 };
-                language->addChild(createMenuItem("First sound / phrase: we sing a star", "", [module, setEnglishMode]{
+                language->addChild(createMenuItem("First sound / phrase: Wake up, little machine", "", [module, setEnglishMode]{
                     setEnglishMode();
                     module->replaceScore(makeDefaultScore(), "New English first-sound phrase");
                     module->params[VocalModule::LOOP_PARAM].setValue(0.f);

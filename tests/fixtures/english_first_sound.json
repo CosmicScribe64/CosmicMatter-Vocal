@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "title": "Wake up, little machine",
+  "nominalBpm": 120,
+  "beatsPerBar": 4,
+  "beatUnit": 4,
+  "revision": 1,
+  "notes": [
+    {"id":"en-wake","startTick":0,"durationTick":720,"midiNote":55,"lyric":"wake","pitchCents":[],"dynamicsDb":[],"vibrato":{}},
+    {"id":"en-up","startTick":720,"durationTick":480,"midiNote":57,"lyric":"up","pitchCents":[],"dynamicsDb":[[0,-4],[240,1],[480,-1]],"vibrato":{}},
+    {"id":"en-little","startTick":1200,"durationTick":960,"midiNote":59,"lyric":"little","pitchCents":[[0,-15],[480,20],[960,0]],"dynamicsDb":[],"vibrato":{}},
+    {"id":"en-machine","startTick":2160,"durationTick":1440,"midiNote":60,"lyric":"machine","pitchCents":[],"dynamicsDb":[],"vibrato":{"startPercent":55,"depthCents":35,"rateHz":5.4,"phase":0,"fadeInPercent":15,"fadeOutPercent":20}}
+  ],
+  "sections": [
+    {"id":"en-wake-up","name":"WAKE UP","startTick":0,"endTick":1200},
+    {"id":"en-little-machine","name":"LITTLE MACHINE","startTick":1200,"endTick":3600}
+  ]
+}

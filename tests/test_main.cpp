@@ -9,6 +9,7 @@
 #include "render/NativeV1Renderer.hpp"
 #include "render/RenderService.hpp"
 #include "render/Wav.hpp"
+#include "rack/EditorNavigation.hpp"
 #include "transport/VocalTransport.hpp"
 #include "voicebank/Voicebank.hpp"
 
@@ -121,6 +122,125 @@ static void testEncoding() {
     TextEncoding detected{}; CHECK(decodeText(cp932, &detected) == "足立レイ"); CHECK(detected == TextEncoding::Cp932);
     CHECK(decodeText("\xef\xbb\xbfhello", &detected) == "hello"); CHECK(detected == TextEncoding::Utf8Bom);
     CHECK(isValidUtf8("かな")); CHECK(!isValidUtf8(cp932));
+}
+
+static void testEditorNavigation() {
+    const auto vertical = editorScrollIntent(0.f, 4.f, false, false);
+    NEAR(vertical.pitchPixels, 10.5f, 0.001f);
+    NEAR(vertical.timelinePixels, 0.f, 0.001f);
+
+    const auto horizontal = editorScrollIntent(1.5f, 0.f, false, false);
+    NEAR(horizontal.timelinePixels, 12.f, 0.001f);
+    NEAR(horizontal.pitchPixels, 0.f, 0.001f);
+
+    const auto twoAxis = editorScrollIntent(-0.5f, 0.75f, false, false);
+    NEAR(twoAxis.timelinePixels, -4.f, 0.001f);
+    NEAR(twoAxis.pitchPixels, 5.25f, 0.001f);
+
+    const auto shiftedWheel = editorScrollIntent(0.f, -2.f, false, true);
+    NEAR(shiftedWheel.timelinePixels, -12.f, 0.001f);
+    NEAR(shiftedWheel.pitchPixels, 0.f, 0.001f);
+
+    const auto shiftedTrackpad = editorScrollIntent(0.5f, -2.f, false, true);
+    NEAR(shiftedTrackpad.timelinePixels, 4.f, 0.001f);
+    NEAR(shiftedTrackpad.pitchPixels, 0.f, 0.001f);
+
+    const auto timelineZoom = editorScrollIntent(1.f, 1.f, true, false);
+    CHECK(timelineZoom.zoomTimeline); CHECK(!timelineZoom.zoomPitches);
+    NEAR(timelineZoom.zoomSteps, 1.f, 0.001f);
+    NEAR(timelineZoom.timelinePixels, 0.f, 0.001f);
+
+    const auto pitchZoom = editorScrollIntent(1.f, -1.f, true, true);
+    CHECK(pitchZoom.zoomPitches); CHECK(!pitchZoom.zoomTimeline);
+    NEAR(pitchZoom.zoomSteps, -1.f, 0.001f);
+
+    CHECK(editorTimelineTailTicks(4, 4) == 15360);  // eight 4/4 bars
+    CHECK(editorTimelineTailTicks(3, 8) == 5760);   // eight 3/8 bars
+}
+
+static void testMonophonicOverwrite() {
+    auto makeNote = [](const std::string& id, int64_t start, int64_t duration) {
+        Note note;
+        note.id = id;
+        note.startTick = start;
+        note.durationTick = duration;
+        note.pitchCents.points = {{0, 0.f}, {duration / 2, 10.f}, {duration, 20.f}};
+        note.dynamicsDb.points = {{0, -6.f}, {duration, 0.f}};
+        return note;
+    };
+
+    // Drawing/moving a later note across an earlier one truncates the earlier
+    // note at the new boundary, matching OpenUtau's pencil/fix-overlap result.
+    VocalScore tailCollision;
+    tailCollision.notes = {makeNote("old", 0, 480), makeNote("edited", 240, 480)};
+    resolveMonophonicOverwrite(tailCollision, {"edited"});
+    CHECK(tailCollision.validate().empty());
+    CHECK(tailCollision.notes.size() == 2);
+    CHECK(tailCollision.notes[0].id == "old");
+    CHECK(tailCollision.notes[0].durationTick == 240);
+    CHECK(tailCollision.notes[0].pitchCents.points.back().tickOffset == 240);
+    NEAR(tailCollision.notes[0].pitchCents.points.back().value, 10.f, 0.001f);
+    CHECK(tailCollision.notes[1].id == "edited");
+    CHECK(tailCollision.notes[1].startTick == 240);
+    CHECK(tailCollision.notes[1].durationTick == 480);
+
+    // If the edited note erases the head of its neighbour, retain and rebase
+    // the neighbour's surviving suffix instead of deleting useful material.
+    VocalScore headCollision;
+    headCollision.notes = {makeNote("edited", 0, 360), makeNote("old", 240, 480)};
+    resolveMonophonicOverwrite(headCollision, {"edited"});
+    CHECK(headCollision.validate().empty());
+    CHECK(headCollision.notes.size() == 2);
+    const auto old = std::find_if(headCollision.notes.begin(), headCollision.notes.end(),
+        [](const Note& note) { return note.id == "old"; });
+    CHECK(old != headCollision.notes.end());
+    CHECK(old->startTick == 360);
+    CHECK(old->durationTick == 360);
+    CHECK(old->pitchCents.points.front().tickOffset == 0);
+    NEAR(old->pitchCents.points.front().value, 5.f, 0.001f);
+
+    // A note spanning the overwrite keeps only its earliest remaining span,
+    // rather than cloning its lyric into a surprise right-hand fragment.
+    VocalScore middleCollision;
+    middleCollision.notes = {makeNote("old", 0, 960), makeNote("edited", 240, 240)};
+    resolveMonophonicOverwrite(middleCollision, {"edited"});
+    CHECK(middleCollision.validate().empty());
+    CHECK(middleCollision.notes.size() == 2);
+    CHECK(middleCollision.notes[0].id == "old");
+    CHECK(middleCollision.notes[0].durationTick == 240);
+
+    // Full coverage removes the old note. Multiple edited notes remain a
+    // rigid group and jointly overwrite every unselected collision.
+    VocalScore groupCollision;
+    groupCollision.notes = {
+        makeNote("covered", 120, 120), makeNote("left", 0, 240),
+        makeNote("right", 240, 240), makeNote("after", 420, 240),
+    };
+    resolveMonophonicOverwrite(groupCollision, {"left", "right"});
+    CHECK(groupCollision.validate().empty());
+    CHECK(groupCollision.notes.size() == 3);
+    CHECK(std::none_of(groupCollision.notes.begin(), groupCollision.notes.end(),
+        [](const Note& note) { return note.id == "covered"; }));
+    const auto after = std::find_if(groupCollision.notes.begin(), groupCollision.notes.end(),
+        [](const Note& note) { return note.id == "after"; });
+    CHECK(after != groupCollision.notes.end());
+    CHECK(after->startTick == 480);
+    CHECK(after->durationTick == 180);
+
+    // Notes outside the overwritten time keep their authored pre/post-roll
+    // pitch points byte-for-byte; resolving one collision must not rewrite
+    // unrelated expression data elsewhere in a song.
+    VocalScore unrelatedCurves;
+    auto far = makeNote("far", 960, 480);
+    far.pitchCents.points = {{-60, -5.f}, {540, 30.f}};
+    unrelatedCurves.notes = {makeNote("edited", 0, 480), far};
+    resolveMonophonicOverwrite(unrelatedCurves, {"edited"});
+    const auto untouched = std::find_if(unrelatedCurves.notes.begin(), unrelatedCurves.notes.end(),
+        [](const Note& note) { return note.id == "far"; });
+    CHECK(untouched != unrelatedCurves.notes.end());
+    CHECK(untouched->pitchCents.points.size() == 2);
+    CHECK(untouched->pitchCents.points[0].tickOffset == -60);
+    CHECK(untouched->pitchCents.points[1].tickOffset == 540);
 }
 
 static void testVoicebankAndPhonemizers() {
@@ -307,14 +427,55 @@ static void testVoicebankAndPhonemizers() {
 
 static void testScoreSerialization() {
     auto original = makeDefaultScore();
+    std::ifstream templateInput("tests/fixtures/english_first_sound.json", std::ios::binary);
+    CHECK(templateInput.good());
+    const std::string templateJson((std::istreambuf_iterator<char>(templateInput)),
+                                   std::istreambuf_iterator<char>());
+    const auto templateFixture = scoreFromJson(templateJson);
+    CHECK(templateFixture.title == original.title);
+    CHECK(templateFixture.notes.size() == original.notes.size());
+    CHECK(templateFixture.sections.size() == original.sections.size());
+    for (size_t index = 0; index < original.notes.size(); ++index) {
+        const auto& expected = original.notes[index];
+        const auto& fixture = templateFixture.notes[index];
+        CHECK(fixture.startTick == expected.startTick);
+        CHECK(fixture.durationTick == expected.durationTick);
+        CHECK(fixture.midiNote == expected.midiNote);
+        CHECK(fixture.lyric == expected.lyric);
+        CHECK(fixture.pitchCents.points.size() == expected.pitchCents.points.size());
+        for (size_t point = 0; point < expected.pitchCents.points.size(); ++point) {
+            CHECK(fixture.pitchCents.points[point].tickOffset ==
+                  expected.pitchCents.points[point].tickOffset);
+            NEAR(fixture.pitchCents.points[point].value,
+                 expected.pitchCents.points[point].value, 0.001f);
+        }
+        CHECK(fixture.dynamicsDb.points.size() == expected.dynamicsDb.points.size());
+        for (size_t point = 0; point < expected.dynamicsDb.points.size(); ++point) {
+            CHECK(fixture.dynamicsDb.points[point].tickOffset ==
+                  expected.dynamicsDb.points[point].tickOffset);
+            NEAR(fixture.dynamicsDb.points[point].value,
+                 expected.dynamicsDb.points[point].value, 0.001f);
+        }
+        NEAR(fixture.vibrato.startPercent, expected.vibrato.startPercent, 0.001f);
+        NEAR(fixture.vibrato.depthCents, expected.vibrato.depthCents, 0.001f);
+        NEAR(fixture.vibrato.rateHz, expected.vibrato.rateHz, 0.001f);
+        NEAR(fixture.vibrato.fadeInPercent, expected.vibrato.fadeInPercent, 0.001f);
+        NEAR(fixture.vibrato.fadeOutPercent, expected.vibrato.fadeOutPercent, 0.001f);
+    }
+    for (size_t index = 0; index < original.sections.size(); ++index) {
+        CHECK(templateFixture.sections[index].name == original.sections[index].name);
+        CHECK(templateFixture.sections[index].startTick == original.sections[index].startTick);
+        CHECK(templateFixture.sections[index].endTick == original.sections[index].endTick);
+    }
     original.notes[0].phonemeTiming.positionOffsetTick = -12;
     original.notes[0].pitchSnapFirst = false;
     original.notes[0].phonemeTiming.preutteranceDeltaMs = 8.f;
     original.notes[0].phonemeTiming.overlapDeltaMs = -3.f;
     const auto encoded = scoreToJson(original, true); auto decoded = scoreFromJson(encoded);
-    CHECK(decoded.notes.size() == 6); CHECK(decoded.sections.size() == 2); CHECK(decoded.title == original.title);
+    CHECK(decoded.notes.size() == original.notes.size()); CHECK(decoded.sections.size() == 2);
+    CHECK(decoded.title == original.title);
     CHECK(!decoded.notes[0].pitchSnapFirst); CHECK(decoded.notes[1].pitchSnapFirst);
-    NEAR(decoded.notes[2].pitchCents.sample(240), 20.f, 0.001f);
+    NEAR(decoded.notes[2].pitchCents.sample(480), 20.f, 0.001f);
     CHECK(decoded.notes[0].phonemeTiming.positionOffsetTick == -12);
     NEAR(*decoded.notes[0].phonemeTiming.preutteranceDeltaMs, 8.f, 0.001f);
     NEAR(*decoded.notes[0].phonemeTiming.overlapDeltaMs, -3.f, 0.001f);
@@ -709,6 +870,51 @@ static void testOfficialOffline(const fs::path& singerPath) {
         CHECK(phone->renderedRms > 0.005f);
     }
 
+    // Timing controls belong to the authored note that owns each resolved
+    // event, including a coda allocated onto an English continuation note.
+    // This specifically guards the editor case where `star` is followed by
+    // `+`: moving the visible final-phone bar must alter rendered audio.
+    VocalScore continuedStar;
+    Note starRoot;
+    starRoot.id = "continued-star-root";
+    starRoot.startTick = 0;
+    starRoot.durationTick = 960;
+    starRoot.midiNote = 57;
+    starRoot.lyric = "star";
+    Note starHold;
+    starHold.id = "continued-star-hold";
+    starHold.startTick = 960;
+    starHold.durationTick = 480;
+    starHold.midiNote = 55;
+    starHold.lyric = "+";
+    continuedStar.notes = {starRoot, starHold};
+    continuedStar.normalize();
+    const auto naturalContinuedStar = renderer.render(continuedStar, singer, options);
+    CHECK(naturalContinuedStar.diagnostics.errors.empty());
+    const auto naturalCoda = std::find_if(
+        naturalContinuedStar.diagnostics.phonemes.begin(),
+        naturalContinuedStar.diagnostics.phonemes.end(),
+        [&](const PhonemeEvent& phone) { return phone.sourceNoteId == starHold.id; });
+    CHECK(naturalCoda != naturalContinuedStar.diagnostics.phonemes.end());
+    continuedStar.notes[1].phonemeTiming.positionOffsetTick = -120;
+    continuedStar.touch();
+    const auto shiftedContinuedStar = renderer.render(continuedStar, singer, options);
+    CHECK(shiftedContinuedStar.diagnostics.errors.empty());
+    const auto shiftedCoda = std::find_if(
+        shiftedContinuedStar.diagnostics.phonemes.begin(),
+        shiftedContinuedStar.diagnostics.phonemes.end(),
+        [&](const PhonemeEvent& phone) { return phone.sourceNoteId == starHold.id; });
+    CHECK(shiftedCoda != shiftedContinuedStar.diagnostics.phonemes.end());
+    CHECK(shiftedCoda->renderedFrames > 1000);
+    CHECK(shiftedCoda->renderedRms > 0.005f);
+    double continuedTimingDifference = 0.0;
+    for (size_t frame = 0; frame < std::min(naturalContinuedStar.samples.size(),
+                                             shiftedContinuedStar.samples.size()); ++frame)
+        continuedTimingDifference += std::abs(
+            naturalContinuedStar.samples[frame] - shiftedContinuedStar.samples[frame]);
+    CHECK(continuedTimingDifference /
+        std::max<size_t>(1, naturalContinuedStar.samples.size()) > 0.0001);
+
     // Broad production-bank pronunciation matrix. A whole-file "non-silent"
     // assertion would miss internal dropouts, so every event of every
     // word must resolve and make a measurable contribution. The vocabulary
@@ -903,7 +1109,9 @@ int main(int argc, char** argv) {
         else if (std::string(argv[i]) == "--offline") offline = true;
     }
     const std::vector<std::pair<std::string, std::function<void()>>> tests = {
-        {"encoding", testEncoding}, {"voicebank and phonemizers", testVoicebankAndPhonemizers},
+        {"encoding", testEncoding}, {"editor navigation", testEditorNavigation},
+        {"monophonic overwrite editing", testMonophonicOverwrite},
+        {"voicebank and phonemizers", testVoicebankAndPhonemizers},
         {"score serialization and migration", testScoreSerialization}, {"USTX import", testUstx},
         {"VocalRack and OpenUtau round trip", testProjectAndUstxRoundTrip},
         {"clock and transport", testClockAndTransport}, {"realtime modulation", testModulation}, {"render keys/cache", testRenderKeys}

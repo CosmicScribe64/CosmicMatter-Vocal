@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the combined Adachi/X-SAMPA/VCCV English comparison report."""
+"""Write the exact-template and broad English comparison report."""
 
 import argparse
 import json
@@ -8,21 +8,23 @@ import pathlib
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("template", type=pathlib.Path)
     parser.add_argument("adachi", type=pathlib.Path)
     parser.add_argument("xsampa", type=pathlib.Path)
     parser.add_argument("vccv", type=pathlib.Path)
     parser.add_argument("output", type=pathlib.Path)
     args = parser.parse_args()
     reports = [json.loads(path.read_text(encoding="utf-8"))
-               for path in (args.adachi, args.xsampa, args.vccv)]
+               for path in (args.template, args.adachi, args.xsampa, args.vccv)]
     passed = all(report["passed"] for report in reports)
     lines = [
         "# VocalRack / pinned OpenUtau English regression",
         "",
         f"Overall result: **{'PASS' if passed else 'FAIL'}**",
         "",
-        "Each row renders the same generated USTX and the same singer in VocalRack and pinned "
-        "OpenUtau Classic. Adachi Rei uses English-to-Japanese phonemization; the X-SAMPA and "
+        "The first row renders Vocal's exact shipped `Wake up, little machine` score and its production "
+        "USTX export in pinned OpenUtau Classic. Every broad-corpus row renders the same generated "
+        "USTX in both engines. Adachi Rei uses English-to-Japanese phonemization; the X-SAMPA and "
         "VCCV rows use deterministic, copyright-safe synthetic UTAU banks.",
         "",
         "| Suite | Notes | Phones matched/reference | Recall / precision | Phone timing p90 | Boundaries | Best-lag r (median) | Lag p90 | Pitch p90 | Mel r (median) | Result |",
@@ -55,7 +57,8 @@ def main() -> None:
         "order. It also checks aligned phone timing, boundary and transient behavior, sustained "
         "pYIN/YIN pitch, RMS level, log-mel envelope, spectral centroid and flatness, and low- and "
         "high-band ratios. The report includes per-group plots, the twelve worst boundaries, and a "
-        "sequential A/C listening WAV for the eight worst cases. The Adachi corpus contains 119 notes "
+        "sequential A/C listening WAV for the eight worst cases. The exact-template row includes the "
+        "shipped pitches, pitch/dynamics curves, and vibrato. The broad Adachi corpus contains 119 notes "
         "in 25 phrases. It covers ordinary dictionary words, major consonant classes, clusters, "
         "diphthongs, multisyllabic lyrics, connected phrases, continuations, registers, and explicit "
         "internal consonant boundaries.",

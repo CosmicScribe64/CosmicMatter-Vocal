@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <random>
 #include <sstream>
+#include <unordered_set>
 
 namespace vocalrack {
 
@@ -124,6 +125,93 @@ void VocalScore::normalize() {
     });
 }
 
+namespace {
+
+void sliceCurve(Curve& curve, int64_t beginOffset, int64_t endOffset) {
+    if (curve.points.empty()) return;
+    const Curve authored = curve;
+    const int64_t duration = endOffset - beginOffset;
+    curve.points.clear();
+    curve.points.push_back({0, authored.sample(beginOffset)});
+    for (const auto& point : authored.points) {
+        if (point.tickOffset > beginOffset && point.tickOffset < endOffset)
+            curve.points.push_back({point.tickOffset - beginOffset, point.value});
+    }
+    curve.points.push_back({duration, authored.sample(endOffset)});
+    curve.normalize();
+}
+
+}  // namespace
+
+void resolveMonophonicOverwrite(VocalScore& score,
+                                const std::vector<std::string>& priorityNoteIds,
+                                int64_t minimumDurationTick) {
+    if (priorityNoteIds.empty()) return;
+    minimumDurationTick = std::max<int64_t>(1, minimumDurationTick);
+    const std::unordered_set<std::string> priority(priorityNoteIds.begin(), priorityNoteIds.end());
+
+    std::vector<std::pair<int64_t, int64_t>> occupied;
+    for (const auto& note : score.notes) {
+        if (priority.count(note.id) && note.durationTick > 0)
+            occupied.emplace_back(note.startTick, note.endTick());
+    }
+    if (occupied.empty()) return;
+    std::sort(occupied.begin(), occupied.end());
+    std::vector<std::pair<int64_t, int64_t>> merged;
+    for (const auto& interval : occupied) {
+        if (merged.empty() || interval.first > merged.back().second)
+            merged.push_back(interval);
+        else
+            merged.back().second = std::max(merged.back().second, interval.second);
+    }
+
+    std::vector<Note> kept;
+    kept.reserve(score.notes.size());
+    for (auto note : score.notes) {
+        if (priority.count(note.id)) {
+            kept.push_back(std::move(note));
+            continue;
+        }
+
+        const int64_t originalStart = note.startTick;
+        const int64_t originalEnd = note.endTick();
+        std::vector<std::pair<int64_t, int64_t>> remaining{{originalStart, originalEnd}};
+        for (const auto& block : merged) {
+            if (block.second <= originalStart || block.first >= originalEnd) continue;
+            std::vector<std::pair<int64_t, int64_t>> next;
+            for (const auto& segment : remaining) {
+                if (block.second <= segment.first || block.first >= segment.second) {
+                    next.push_back(segment);
+                    continue;
+                }
+                if (segment.first < block.first)
+                    next.emplace_back(segment.first, std::min(segment.second, block.first));
+                if (block.second < segment.second)
+                    next.emplace_back(std::max(segment.first, block.second), segment.second);
+            }
+            remaining = std::move(next);
+            if (remaining.empty()) break;
+        }
+
+        const auto survivor = std::find_if(remaining.begin(), remaining.end(), [&](const auto& segment) {
+            return segment.second - segment.first >= minimumDurationTick;
+        });
+        if (survivor == remaining.end()) continue;
+
+        const int64_t beginOffset = survivor->first - originalStart;
+        const int64_t endOffset = survivor->second - originalStart;
+        if (beginOffset != 0 || endOffset != note.durationTick) {
+            sliceCurve(note.pitchCents, beginOffset, endOffset);
+            sliceCurve(note.dynamicsDb, beginOffset, endOffset);
+        }
+        note.startTick = survivor->first;
+        note.durationTick = survivor->second - survivor->first;
+        kept.push_back(std::move(note));
+    }
+    score.notes = std::move(kept);
+    score.normalize();
+}
+
 std::string makeUuid() {
     static std::atomic<uint64_t> counter{1};
     const auto n = counter.fetch_add(1, std::memory_order_relaxed);
@@ -164,10 +252,10 @@ VocalScore makeJapaneseFirstSoundScore() {
 
 VocalScore makeDefaultScore() {
     VocalScore score;
-    score.title = "Adachi Rei English first sound";
-    const char* lyrics[] = {"we", "sing", "a", "+", "star", "+"};
-    const int pitches[] = {55, 57, 59, 60, 59, 55};
-    const int64_t durations[] = {480, 720, 480, 480, 960, 480};
+    score.title = "Wake up, little machine";
+    const char* lyrics[] = {"wake", "up", "little", "machine"};
+    const int pitches[] = {55, 57, 59, 60};
+    const int64_t durations[] = {720, 480, 960, 1440};
     int64_t tick = 0;
     for (size_t index = 0; index < std::size(lyrics); ++index) {
         Note note;
@@ -176,15 +264,15 @@ VocalScore makeDefaultScore() {
         note.durationTick = durations[index];
         note.midiNote = pitches[index];
         note.lyric = lyrics[index];
-        if (index == 2) note.pitchCents.points = {{0, -15.f}, {240, 20.f}, {480, 0.f}};
-        if (index == 3) note.dynamicsDb.points = {{0, -4.f}, {240, 1.f}, {480, -1.f}};
-        if (index == 4) note.vibrato = {55.f, 35.f, 5.4f, 0.f, 15.f, 20.f};
+        if (index == 1) note.dynamicsDb.points = {{0, -4.f}, {240, 1.f}, {480, -1.f}};
+        if (index == 2) note.pitchCents.points = {{0, -15.f}, {480, 20.f}, {960, 0.f}};
+        if (index == 3) note.vibrato = {55.f, 35.f, 5.4f, 0.f, 15.f, 20.f};
         score.notes.push_back(note);
         tick += note.durationTick;
     }
     score.sections = {
-        {makeUuid(), "ENGLISH PHRASE", 0, score.notes[4].startTick},
-        {makeUuid(), "LAST VOWEL", score.notes[4].startTick, tick},
+        {makeUuid(), "WAKE UP", 0, score.notes[2].startTick},
+        {makeUuid(), "LITTLE MACHINE", score.notes[2].startTick, tick},
     };
     score.normalize();
     return score;

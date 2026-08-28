@@ -6,7 +6,7 @@ cd "$repo_dir"
 
 fail() { printf 'release validation failed: %s\n' "$1" >&2; exit 1; }
 
-for file in LICENSE README.md MANUAL.md ARCHITECTURE.md IMPLEMENTATION_STATUS.md THIRD_PARTY_NOTICES.md CHANGELOG.md \
+for file in LICENSE README.md MANUAL.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md CHANGELOG.md \
     test-artifacts/e2e/TEST_REPORT.md \
     third_party/adachi_rei/SOURCE.md third_party/nlohmann/LICENSE.MIT reference/OPENUTAU_COMMIT.txt \
     res/Vocal.svg res/SingerPlate.svg res/singers/adachi-rei/character.txt res/singers/adachi-rei/readme.txt \
@@ -46,7 +46,7 @@ if test -n "${VCVPLUGIN_PATH:-}"; then
     listing=$(mktemp)
     zstd -d -c "$VCVPLUGIN_PATH" | tar -tf - > "$listing"
     for item in plugin.json LICENSE README.md MANUAL.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md CHANGELOG.md \
-        IMPLEMENTATION_STATUS.md test-artifacts/e2e/TEST_REPORT.md \
+        test-artifacts/e2e/TEST_REPORT.md \
         res/dictionaries/cmudict-0.7b.txt \
         res/singers/adachi-rei/character.txt res/singers/adachi-rei/readme.txt \
         third_party/adachi_rei/SOURCE.md patches/VocalRack-Demo.vcv; do
