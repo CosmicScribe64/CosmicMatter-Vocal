@@ -31,7 +31,7 @@ The plugin is free and works without a DAW or OpenUtau installation. It includes
 | **Vocal** | A 64 HP monophonic vocal workstation with a piano-roll editor, UTAU voicebank rendering, transport, sections, expression CV, and mono audio output. |
 | **Singer Plate** | A visual companion that displays a voicebank's portrait and singer name. It has no ports or DSP. |
 
-The permanent Rack plugin slug is `CosmicMatter-Vocal`. Its lossless project extension remains `.vocalrack` so projects have an explicit, portable format.
+The permanent Rack plugin slug is `CosmicMatter`. Its lossless project extension remains `.vocalrack` so projects have an explicit, portable format.
 
 ## Highlights
 

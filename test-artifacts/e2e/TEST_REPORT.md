@@ -17,7 +17,7 @@ Final validation date: 2026-08-27
 | OpenUtau A/B renderer | WORLDLINE-R from the pinned source tree |
 | Bundled singer | Official 足立レイ / Adachi Rei standard UTAU bank 3.5.0 |
 | Singer archive SHA-256 | `b96d1b21145f22e573afd9ec8aeaad0ec9cbaee581c2623c64addeb31de46b3d` |
-| Final package | `dist/CosmicMatter-Vocal-2.0.0-mac-arm64.vcvplugin` |
+| Final package | `dist/CosmicMatter-2.0.0-mac-arm64.vcvplugin` |
 | Final package SHA-256 | Recorded after packaging in `dist/SHA256SUMS`; a package cannot embed its own final hash without changing that hash. |
 
 The official singer archive, exact download URL, date, shipped files, original terms, and extraction method are recorded in `third_party/adachi_rei/SOURCE.md`. VocalRack code is MIT; the singer recordings and character assets retain the original Mechanical Girl terms.
@@ -35,7 +35,7 @@ make openutau-regression
 make openutau-english-regression
 make -j2
 make release
-VCVPLUGIN_PATH=dist/CosmicMatter-Vocal-2.0.0-mac-arm64.vcvplugin sh scripts/validate_release.sh
+VCVPLUGIN_PATH=dist/CosmicMatter-2.0.0-mac-arm64.vcvplugin sh scripts/validate_release.sh
 python3 scripts/validate_e2e.py test-artifacts/e2e
 ```
 

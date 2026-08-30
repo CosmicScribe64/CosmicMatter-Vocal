@@ -407,7 +407,7 @@ static void testStressTargets() {
 int main(int argc, char** argv) {
     rack::plugin::Plugin plugin;
     plugin.path = fs::current_path().string();
-    plugin.slug = "CosmicMatter-Vocal";
+    plugin.slug = "CosmicMatter";
     pluginInstance = &plugin;
     std::vector<std::pair<std::string, void (*)()>> tests = {
         {"clock timing", testClockTiming},

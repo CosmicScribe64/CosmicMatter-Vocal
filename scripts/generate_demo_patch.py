@@ -11,7 +11,7 @@ import tarfile
 def vocal(module_id: int, x: int, transpose: int) -> dict:
     values = [0.0, 0.0, 1.0, 0.0, 120.0, float(transpose), 0.0, 0.0, 0.0, 0.0, 0.0]
     return {
-        "id": module_id, "plugin": "CosmicMatter-Vocal", "model": "Vocal", "version": "2.0.0",
+        "id": module_id, "plugin": "CosmicMatter", "model": "Vocal", "version": "2.0.0",
         "params": [{"id": i, "value": value} for i, value in enumerate(values)],
         "data": {"singerId": "builtin:adachi-rei", "phonemizer": "Japanese Auto", "ppqn": 24,
                  "runRisingBehavior": 0, "sectionQuantization": 3, "panelPlaying": True},
@@ -26,7 +26,7 @@ def main() -> None:
         "version": "2.6.6", "zoom": 0.45, "gridOffset": [0.0, 0.0],
         "modules": [
             vocal(1, 0, 0), vocal(2, 64, 7),
-            {"id": 3, "plugin": "CosmicMatter-Vocal", "model": "SingerPlate", "version": "2.0.0", "params": [],
+            {"id": 3, "plugin": "CosmicMatter", "model": "SingerPlate", "version": "2.0.0", "params": [],
              "data": {"singerId": "builtin:adachi-rei", "fitMode": 0, "showName": True}, "pos": [128, 0]},
         ],
         "cables": [],

@@ -4,6 +4,11 @@ All notable user-visible changes to Cosmic Matter: Vocal are recorded here.
 Versions follow VCV Rack's convention: the major version matches the supported
 Rack major version.
 
+## [2.0.2] - 2026-08-30
+
+- Renamed the plugin to **Cosmic Matter** with the permanent slug
+  `CosmicMatter`, leaving Vocal and Singer Plate as module names.
+
 ## [2.0.1] - 2026-08-27
 
 VCV Library submission-readiness patch.
@@ -38,5 +43,6 @@ Initial public release for VCV Rack 2.
 - Automated renderer comparisons against pinned OpenUtau Classic plus a real
   VCV Rack end-to-end interaction and audio suite.
 
-[2.0.1]: https://github.com/CosmicScribe64/CosmicMatter-Vocal/compare/v2.0.0...main
+[2.0.2]: https://github.com/CosmicScribe64/CosmicMatter-Vocal/compare/v2.0.1...main
+[2.0.1]: https://github.com/CosmicScribe64/CosmicMatter-Vocal/releases/tag/v2.0.1
 [2.0.0]: https://github.com/CosmicScribe64/CosmicMatter-Vocal/releases/tag/v2.0.0

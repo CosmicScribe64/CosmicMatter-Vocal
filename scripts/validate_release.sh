@@ -15,8 +15,10 @@ for file in LICENSE README.md MANUAL.md ARCHITECTURE.md THIRD_PARTY_NOTICES.md C
     test -f "$file" || fail "missing $file"
 done
 
-grep -Eq '"slug"[[:space:]]*:[[:space:]]*"CosmicMatter-Vocal"' plugin.json \
+grep -Eq '"slug"[[:space:]]*:[[:space:]]*"CosmicMatter"' plugin.json \
     || fail "plugin.json has the wrong permanent plugin slug"
+grep -Eq '"name"[[:space:]]*:[[:space:]]*"Cosmic Matter"' plugin.json \
+    || fail "plugin.json has the wrong plugin name"
 grep -Eq '"license"[[:space:]]*:[[:space:]]*"MIT"' plugin.json \
     || fail "plugin.json license is not MIT"
 grep -Eq '"version"[[:space:]]*:[[:space:]]*"2\.[0-9]+\.[0-9]+"' plugin.json \

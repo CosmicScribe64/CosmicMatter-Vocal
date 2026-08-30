@@ -49,7 +49,7 @@ def vocal(module_id: int, x: int, y: int, loop: float, range_mode: float, transp
         data["score"] = json.dumps(score, ensure_ascii=False, separators=(",", ":"))
     return {
         "id": module_id,
-        "plugin": "CosmicMatter-Vocal",
+        "plugin": "CosmicMatter",
         "model": "Vocal",
         "version": "2.0.0",
         "params": [{"id": i, "value": value} for i, value in enumerate(values)],
@@ -118,9 +118,9 @@ def main() -> None:
         vocal(4, 0, 1, 0.0, 1.0, 0.0, fixture("one_shot.json")),
         vocal(5, 64, 1, 0.0, 0.0, 0.0, fixture("long_multibar.json")),
         vocal(6, 128, 1, 1.0, 1.0, 0.0, fixture("drone.json"), (0.20, 0.25, 0.30, 0.50)),
-        {"id": 7, "plugin": "CosmicMatter-Vocal", "model": "SingerPlate", "version": "2.0.0", "params": [],
+        {"id": 7, "plugin": "CosmicMatter", "model": "SingerPlate", "version": "2.0.0", "params": [],
          "data": {"singerId": "builtin:adachi-rei", "externalSingerPath": "", "fitMode": 0, "showName": True}, "pos": [192, 0]},
-        {"id": 8, "plugin": "CosmicMatter-Vocal", "model": "SingerPlate", "version": "2.0.0", "params": [],
+        {"id": 8, "plugin": "CosmicMatter", "model": "SingerPlate", "version": "2.0.0", "params": [],
          "data": {"singerId": "external:e2e-test-bank", "externalSingerPath": str(bank), "fitMode": 1, "showName": True}, "pos": [204, 0]},
         {"id": 10, "plugin": "VocalRackE2E", "model": "E2EDriver", "version": "2.0.0", "params": [],
          "data": {"outputDirectory": str(output.parents[2])}, "pos": [216, 0]},

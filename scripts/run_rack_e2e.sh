@@ -15,7 +15,7 @@ test "$(uname -s)" = Darwin || { printf 'The reference GUI E2E script currently 
 cd "$repo_dir"
 make dist
 make -C tests/e2e-plugin RACK_DIR="$repo_dir/.rack-sdk/Rack-SDK" dist
-production_package=$(find dist -name 'CosmicMatter-Vocal-*.vcvplugin' -type f -print -quit)
+production_package=$(find dist -name 'CosmicMatter-*.vcvplugin' -type f -print -quit)
 helper_package=$(find tests/e2e-plugin/dist -name 'VocalRackE2E-*.vcvplugin' -type f -print -quit)
 VCVPLUGIN_PATH="$production_package" sh scripts/validate_release.sh
 
